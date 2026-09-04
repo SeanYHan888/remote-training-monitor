@@ -95,7 +95,7 @@ These are examples, not an exhaustive bug list:
 - **Environment failure:** repair and rerun automatically when the environment
   is isolated, still inside the environment/setup contract, and all readiness
   tests will be repeated. A post-freeze dependency or driver change is high
-  risk unless the governing phase contract explicitly allows re-freezing it.
+  risk unless the governing Phase Plan explicitly allows re-freezing it.
 - **Training retry:** an identical retry may be low risk within the approved
   job and resource envelope. Changing effective batch, precision, optimizer,
   data order, checkpoint semantics, or other experiment meaning is high risk.

@@ -1,4 +1,4 @@
 interface:
   display_name: "Remote Training Monitor"
-  short_description: "Monitor, gate, and recover training jobs"
-  default_prompt: "Use $remote-training-monitor for this training job. Detect whether the request needs read-only Watchdog observation, Phase Gate approval control, autonomous low-risk Watch and Fix recovery, or a composition of them. Default to observation when recovery authority is ambiguous, reuse one heartbeat, and follow the shared control and risk contracts."
+  short_description: "Plan, monitor, gate, and recover training jobs"
+  default_prompt: "Use $remote-training-monitor for this job. Resolve the entry point (plan, start, iterate, status, approve, stop, wake, sleep), detect the harness, and for any recurring watch write and present the Run Plan before arming one heartbeat. Detect whether the request needs read-only Watchdog observation, Phase Gate approval control, autonomous low-risk Watch and Fix recovery, or a composition of them. Default to observation when recovery authority is ambiguous, reuse the recorded heartbeat, and follow the shared control and risk contracts."

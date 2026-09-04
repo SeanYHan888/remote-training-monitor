@@ -12,31 +12,33 @@ silently redesigning its codebase or workload.
 ## Composition
 
 Read `../remote-training-monitor/CONTROL_CONTRACT.md` and
-`../remote-training-monitor/RISK_POLICY.md`. Use **Remote Job Watchdog** for
-authoritative observation and verification. For a multi-phase job, compose
-with **Remote Job Phase Gate**: recovery applies only to the current approved
-phase and every later phase still needs approval.
+`../remote-training-monitor/RISK_POLICY.md`. The retry budget, rollback point
+requirements, resource envelope, and destination scope come from the Run
+Plan's Monitoring Contract. Use **Remote Job Watchdog** for authoritative
+observation and verification. For a multi-phase job, compose with **Remote
+Job Phase Gate**: recovery applies only to the current approved phase and
+every later phase still needs approval.
 
-For recurring monitoring, reuse the single heartbeat owned by Watchdog. Do not
-create a separate recovery timer. When recovery materially changes expected
-runtime or stability, have Watchdog re-estimate the remaining duration and
-update that heartbeat to an appropriate 10-to-20-minute cadence. After recovery
-of a multi-phase job, return the same heartbeat to the Phase Gate contract.
+Reuse the single heartbeat owned by Watchdog. When recovery materially changes
+expected runtime or stability, have Watchdog re-estimate and set the Cadence
+Mode, normally `ACTIVE` after a repair. After recovery of a multi-phase job,
+return the same heartbeat to the Phase Gate contract.
 
-Do not perform recovery on a sleep cadence. When Sleep Mode detects a failure,
-stall, or ambiguity, first wake the existing heartbeat to the normal
-10-to-20-minute cadence, then apply the authorized recovery contract. Sleep
-Mode may be re-entered only after recovery verification and renewed stability.
+Recovery runs at `ACTIVE`. When a `SLEEP` heartbeat detects a failure, stall,
+or ambiguity, first set the existing heartbeat to `ACTIVE`, then apply the
+authorized recovery contract. `SLEEP` may be re-entered only after recovery
+verification and renewed stability.
 
 ## Recovery authority
 
-Automatic repair requires `recovery_policy=auto_low_risk` in the monitoring
-contract. Before acting, preserve failure evidence and run the Recovery Risk
-Judge on the specific proposed action.
+Automatic repair requires `recovery_policy: auto_low_risk` in the Run Plan.
+Before acting, preserve failure evidence and run the Recovery Risk Judge on
+the specific proposed action.
 
 - If the result is `LOW`, repair and redo automatically within the retry and
   resource envelope.
-- If the result is `HIGH`, set `AWAITING_USER_APPROVAL` and wait.
+- If the result is `HIGH`, set `AWAITING_USER_APPROVAL`, pause the
+  heartbeat, and wait.
 - If risk is uncertain, classify it `HIGH`.
 
 This classification is based on preserved invariants, reversibility,
@@ -52,7 +54,9 @@ provenance, cost, and authority—not on a fixed list of error strings.
    resource impact, retry budget, and absence of duplicates.
 6. Apply the repair with a unique attempt identity and redo only the failed
    step or smallest necessary scope.
-7. Verify the declared contract and save the action and result.
+7. Verify the declared contract; append the attempt, risk decision, and
+   result to the plan's History and bump the cause's retry count in
+   `state.json`.
 8. Stop after the retry budget is exhausted or the same cause repeats without
    progress; do not widen the repair silently.
 
