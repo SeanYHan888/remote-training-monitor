@@ -24,6 +24,8 @@ done
 
 skills_output="$(npx --yes skills@1.5.23 add . --agent codex --list 2>&1)"
 printf '%s\n' "$skills_output"
+# CI may insert ANSI color codes between "Found" and the count.
+skills_output="$(printf '%s\n' "$skills_output" | python3 -c 'import re, sys; print(re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", sys.stdin.read()))')"
 grep -Fq "Found 4 skills" <<<"$skills_output"
 
 for skill_name in \
