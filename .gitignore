@@ -2,3 +2,5 @@
 *.log
 *.tmp
 __pycache__/
+.remote-monitor/
+skills-lock.json

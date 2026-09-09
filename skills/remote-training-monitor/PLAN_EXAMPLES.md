@@ -1,6 +1,7 @@
 # Run Plan Examples
 
-Patterns to copy. Each is complete enough to arm a heartbeat from.
+Illustrative plans. Verify identities, current evidence, approvals, and the
+runtime's scheduling capabilities before arming a heartbeat.
 
 ## Single-phase Slurm training, already running, observe only
 
@@ -9,7 +10,7 @@ Patterns to copy. Each is complete enough to arm a heartbeat from.
 target_key: slurm-4821
 harness: claude-code
 control_plane: slurm
-project_dir: /home/sean/proj/llm-ft
+project_dir: /home/ml-user/projects/llm-ft
 cadence_mode: RELAXED
 recovery_policy: observe_only
 plan_revision: 1
@@ -26,11 +27,11 @@ created: 2026-09-04T09:12:00Z
 
 ## Monitoring Contract
 
-- Identities: Slurm job 4821, user sean, workdir `/scratch/sean/llm-ft/run-0904`
+- Identities: Slurm job 4821, user ml-user, workdir `/scratch/ml-user/llm-ft/run-0904`
 - Adapter: Slurm. `squeue -j 4821`, `scontrol show job 4821`, `sacct -j 4821`; logs from StdOut path
-- Success: exit checks above. Failure: State in FAILED/TIMEOUT/PREEMPTED, or traceback in StdErr. Stop: State=CANCELLED by sean
+- Success: exit checks above. Failure: State in FAILED/TIMEOUT/PREEMPTED, or traceback in StdErr. Stop: State=CANCELLED by ml-user
 - Cadence: RELAXED. Basis: 20000 steps at ~1.9 step/s observed, ~2.9 h remaining, two healthy observations
-- Recovery: observe_only. Approval holder: sean
+- Recovery: observe_only. Approval holder: operator
 - Limits: none granted; read-only
 - Discovery gaps: none
 
@@ -38,7 +39,7 @@ created: 2026-09-04T09:12:00Z
 
 ## History
 
-- 2026-09-04T09:12Z started, heartbeat cron `rtm-slurm-4821` at 30 min
+- 2026-09-04T09:12Z started, heartbeat `rtm-slurm-4821` at 30 min; lifetime and execution directory verified and recorded in state.json
 ```
 
 ## Three-phase train, eval, upload with Phase Gate and low-risk recovery
@@ -48,7 +49,7 @@ created: 2026-09-04T09:12:00Z
 target_key: slurm-4830
 harness: codex-desktop
 control_plane: slurm
-project_dir: /Users/sean/proj/llm-ft
+project_dir: /Users/operator/projects/llm-ft
 cadence_mode: ACTIVE
 recovery_policy: auto_low_risk
 plan_revision: 1
@@ -71,19 +72,23 @@ created: 2026-09-04T10:00:00Z
 - Adapter: Slurm as above; phase 3 is a generic process
 - Success/failure/stop per phase exit checks; unexpected cancellation is FAILED
 - Cadence: ACTIVE. Basis: ~50 min remaining in phase 1
-- Recovery: auto_low_risk, retry budget 2 per cause, rollback point = last checkpoint. Approval holder: sean
+- Recovery: auto_low_risk, retry budget 2 per cause, rollback point = last checkpoint. Approval holder: operator
 - Limits: 1 node, no new GPUs, no deletion, destination only org/mix-v3, no visibility change
-- Discovery gaps: eval benchmark list confirmed by sean
+- Discovery gaps: eval benchmark list confirmed by operator
 
 ## Approvals
 
-- 2026-09-04T10:05Z sean: "approved, run it" — revision 1; phase 1 launch (already running) and auto_low_risk recovery
+- 2026-09-04T10:05Z operator: "approved, run it" — revision 1; phase 1 launch (already running) and auto_low_risk recovery
 
 ## History
 ```
 
 Phase 2 and phase 3 each wait at `AWAITING_USER_APPROVAL` for an approval that
 names them.
+
+After upload passes its exit checks and all required artifacts are verified,
+report overall completion and pause. A retry within a phase keeps
+`slurm-4830` and its heartbeat, while recording a new attempt/job identity.
 
 ## Batch inference in Kubernetes, observe only, one phase
 
@@ -92,7 +97,7 @@ names them.
 target_key: k8s-infer-mixv3-7f2c1
 harness: codex-cli
 control_plane: kubernetes
-project_dir: /home/sean/proj/serving
+project_dir: /home/ml-user/projects/serving
 cadence_mode: ACTIVE
 recovery_policy: observe_only
 plan_revision: 1
@@ -111,11 +116,11 @@ created: 2026-09-04T14:20:00Z
 
 - Identities: namespace ml, Job infer-mixv3, uid 7f2c1…
 - Adapter: Kubernetes. `kubectl get job/infer-mixv3 -n ml`, `kubectl logs --since=…`, events, restart counts
-- Success: exit checks. Failure: condition Failed, restart count climbing, OOMKilled. Stop: Job deleted by sean
+- Success: exit checks. Failure: condition Failed, restart count climbing, OOMKilled. Stop: Job deleted by ml-user
 - Cadence: ACTIVE. Basis: ~40 min remaining at observed throughput
-- Recovery: observe_only. Approval holder: sean
+- Recovery: observe_only. Approval holder: operator
 - Discovery gaps: none
-- Harness note: codex-cli, in-session polling bounded to 8 polls; cron one-liner handed to sean
+- Harness note: codex-cli, in-session polling bounded to 40 minutes; per-call waits follow runtime limits. Operator-managed scheduling is needed to outlive the session.
 
 ## Approvals
 

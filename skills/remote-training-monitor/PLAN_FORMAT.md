@@ -15,18 +15,44 @@ cursor inside prose.
 
 ## Target Key
 
-`<control-plane>-<immutable-id>[-attempt-N]`, for example `slurm-4821`,
-`k8s-train-abc12-attempt-2`, `proc-a1b2c3`. The immutable id comes from the
-control plane, never from a job name. The user may add a label; the key still
-carries the id. A resubmission or retry gets a new attempt suffix and a new
-directory.
+The Target Key identifies the monitored workflow, not its current attempt.
+For an already running job, derive it from the control-plane scope and initial
+immutable job identity, for example `slurm-cluster-a-4821`. For a pipeline
+not yet launched, generate a unique local run ID. Use a filesystem-safe key.
+Once written, the key and state directory remain stable across phases and retries.
+
+Record each phase launch or retry with a distinct `attempt_id`, exact remote
+identity, and artifact paths in History; retain prior failure evidence. Update
+`current_attempt` and reset observation cursors for the new attempt. Keep
+retry counts across attempts. An unrelated workflow gets its own key.
+Existing plans retain their original keys; do not rename them to match these
+examples or overwrite an existing directory for a similarly named job.
 
 ## Repo hygiene
 
 On first write, if the project is a git repository, append
-`.remote-monitor/` to `.git/info/exclude` when it is not already ignored. That
+`.remote-monitor/` to the exclude file resolved by `git rev-parse --git-path info/exclude`
+when it is not already ignored. That
 keeps the directory out of commits without editing any tracked file. After a
 terminal state the directory is kept and named in the outcome report.
+
+## Discovery and approval
+
+Inspect launch scripts, job specs, configs, working directories, checkpoints,
+and bounded logs read-only. Draft phases from the evidence; use one phase
+named `run` when there is no multi-phase workflow. Ask only for missing
+information needed to identify the target, define success, or establish authority.
+Use `PLAN_EXAMPLES.md` when an example would clarify the plan format.
+
+- `plan` writes and presents the plan without scheduling or launching.
+- `start` with `observe_only` and no launch action proceeds after presenting
+  the plan; it does not require another approval.
+- A launch or `auto_low_risk` policy requires matching approval of the concrete
+  plan. Record already supplied approval when it covers that exact scope;
+  otherwise present the plan and wait. Approval covers phase 1's named launch
+  and the stated recovery envelope. Later phases gate individually.
+- Changes to phase semantics, resources, or recovery policy bump the revision
+  and invalidate standing approvals.
 
 ## plan.md
 
@@ -79,17 +105,24 @@ phase with a real launch action gates on Approval.
 {
   "target_key": "slurm-4821",
   "plan_revision": 1,
-  "heartbeat": { "harness": "codex-desktop", "id": "<task id or routine name>", "interval_min": 30 },
-  "controller_state": "ACTIVE | SLEEP | RECOVERING | AWAITING_USER_APPROVAL | PAUSED",
+  "heartbeat": { "harness": "codex-desktop", "id": "<task id>", "interval_min": 30, "durability": "durable", "project_dir": "/abs/path" },
+  "controller_state": "ACTIVE",
   "current_phase": 1,
-  "job_state": "RUNNING | FINISHED | FAILED | STOPPED",
-  "health": "HEALTHY | DEGRADED | STALLED | AMBIGUOUS",
+  "current_attempt": { "attempt_id": "phase-1-attempt-1", "control_plane": "slurm", "scope": "cluster-a", "job_id": "4821" },
+  "job_state": "RUNNING",
+  "health": "HEALTHY",
   "cursor": { "log_offset": 0, "last_step": 0, "last_checkpoint": null, "scheduler_seen": "..." },
   "last_observed": "2026-09-04T12:30:00Z",
   "estimated_remaining_min": 240,
   "retries": { "<cause>": 0 }
 }
 ```
+
+This is an example instance, not a JSON Schema. Enum values are defined in
+`CONTROL_CONTRACT.md`; heartbeat durability is `durable`, `session-bound`,
+or `unknown`. Before scheduling, `heartbeat` is null; before first launch,
+`current_attempt`, `job_state`, `health`, and `last_observed` may be null.
+Use `PAUSED` for a draft and `AWAITING_USER_APPROVAL` for a pending gate.
 
 `iterate` reads this file first. Controller state `PAUSED` or
 `AWAITING_USER_APPROVAL` makes the wake a no-op wake.

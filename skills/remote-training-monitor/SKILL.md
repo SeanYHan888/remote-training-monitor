@@ -1,107 +1,56 @@
 ---
 name: remote-training-monitor
-description: Plan, check on, watch, or monitor a job and report its state, progress, and failures - training runs, inference or evaluation jobs, Slurm/Kubernetes/Docker/systemd workloads, or any long-running script. TRIGGER when the user says "check the training", "check progress", "how's the run going", "is the job still running", "is it stuck", "did it finish", "watch this job", "monitor job 12345", "tell me when it's done", "what happened to my run", "plan this training", "plan and run this pipeline", or names a job id, run id, or cluster job to look at. Also trigger when a multi-phase pipeline must stop for approval between phases, or when the user authorizes automatic recovery of routine failures ("watch and fix", "keep it running"). Read-only toward the job by default - it observes and reports, and never restarts, resubmits, cancels, or edits anything unless recovery is explicitly authorized.
-user-invocable: true
+description: Plan and coordinate monitoring of long-running training, evaluation, and compute jobs. Use for recurring monitoring, approval-gated pipelines, or authorized recovery; route one-shot job checks to Watchdog.
+license: MIT
+compatibility: Requires all four skills from this repository and an agent with filesystem and shell access. Recurring monitoring also requires scheduler or background-process support.
 ---
 
 # Remote Training Monitor
 
-Entry point for planning, watching, gating, and recovering long-running remote
-jobs. Every recurring monitor is **plan-first**: a Run Plan is written and
-shown before the first heartbeat is armed, because on some harnesses the plan
-file is the only context the next wake will have.
+Route requests using the table below. The complete collection includes the
+three sibling skills: Watchdog, Phase Gate, and Watch and Fix. If a required
+companion is missing, report the missing path and the collection install command:
+`npx skills@latest add SeanYHan888/remote-training-monitor --skill '*'`.
 
-## Procedure
+## Routing
 
-1. Resolve the entry point (table below) from the explicit verb or the
-   natural-language intent.
-2. Detect the harness and read its row in `HARNESSES.md`.
-3. Read `CONTROL_CONTRACT.md`, then the matching section of `ADAPTERS.md`.
-4. For `plan` or `start`: run Discovery and write the Run Plan as specified in
-   `PLAN_FORMAT.md`; `PLAN_EXAMPLES.md` shows finished plans. Present it.
-5. Apply the approval rule, then hand the target to **Remote Job Watchdog**.
-   Layer **Remote Job Phase Gate** when the plan has more than one phase or a
-   launch action, and **Remote Job Watch and Fix** when the plan's recovery
-   policy is `auto_low_risk` (read `RISK_POLICY.md` before any repair).
-
-## Entry points
-
-A heartbeat prompt must be unambiguous, so the router accepts fixed verbs.
-Natural language maps onto them; a scheduled task always uses the verb form
-`$remote-training-monitor <verb> <target-key>`.
-
-| Verb | Effect | Arms a heartbeat? |
-| --- | --- | --- |
-| `plan` | Discovery, write and present the Run Plan | No |
-| `start` | `plan` if no plan exists, then arm the heartbeat | Yes |
-| `iterate <key>` | One Observation for the Target Key; what every wake runs | Reuses |
-| `status <key>` | Report from `state.json` without observing | No |
-| `approve <key> <phase or revision>` | Append an Approval to the plan | No |
-| `stop <key>` | Pause the heartbeat; the job is untouched | No |
-| `wake <key>` / `sleep <key>` | Set Cadence Mode `ACTIVE` / `SLEEP` | Reuses |
-
-`iterate` with no plan file at the expected path refuses in one line naming
-the path and the directory it expected to run in. A wake never re-plans and
-never re-arms.
-
-## Plan-first
-
-| Request | Plan? |
+| Request / verb | Action and references |
 | --- | --- |
-| One-shot: "is job 12345 still running?", "did it finish?" | No. Observe once, answer. |
-| Recurring: "watch", "tell me when done", "monitor while I'm away" | Yes, then arm. |
-| Multi-phase or "plan and run" | Yes, then gate. |
+| One-shot job check | Use `../remote-job-watchdog/SKILL.md` for one observation; no plan or heartbeat. |
+| `status <key>` | Read `.remote-monitor/<key>/state.json`; report saved state and observation timestamp, explicitly identifying it as cached. No target observation or scheduler call. |
+| `plan` | Read `PLAN_FORMAT.md` and the relevant section of `ADAPTERS.md`; discover, write, and present the plan. Stop before launching or scheduling. |
+| `start` / recurring watch | Read `CONTROL_CONTRACT.md` and `../remote-job-watchdog/SKILL.md`. Reuse an existing plan or create one using `PLAN_FORMAT.md`; apply its approval rule, then establish one heartbeat using `HARNESSES.md`. |
+| `iterate <key>` | Read saved state first. If paused or awaiting approval, exit without observing. Otherwise use Watchdog for one iteration and the plan's authorized policy. Never re-plan or create a heartbeat. |
+| `approve <key> <phase or revision>` | Read the plan and `../remote-job-phase-gate/SKILL.md`; record matching user approval. Continue an approved pending start or phase launch, then resume the same heartbeat. |
+| `stop <key>` | Read saved state and the lifecycle in `CONTROL_CONTRACT.md`; pause monitoring through `HARNESSES.md`, leaving the job untouched. |
+| `wake <key>` / `sleep <key>` | Use Watchdog's Cadence Mode guidance and `HARNESSES.md` to update the existing monitor. These change cadence, not authority or a paused approval gate. |
 
-Discovery is read-only: launch scripts, sbatch or job specs, configs, the
-working directory, existing checkpoints and logs. Draft phases from what is
-found, mark gaps, and ask only for what could not be discovered. When nothing
-phase-shaped exists, the plan has one phase named `run`.
+A missing plan/state for a keyed command is a concise diagnostic naming the
+expected path and execution directory. Only an explicit `start` may establish
+or resume a monitor, including continuation of that start after approval.
+Read references only for the chosen route; reuse material already loaded.
 
-Approval rule:
+“Monitor while I'm away” means `start`; for an existing monitor it reuses that
+monitor. Absence alone does not request `SLEEP`. An explicit request for hourly
+or sleep monitoring selects that cadence after establishing the monitor.
 
-- Recovery policy `observe_only` and no launch action: show the plan and start
-  observing immediately.
-- Any launch action or `auto_low_risk`: show the plan and wait. Approving the
-  plan approves phase 1's launch action by name; every later phase still gates.
-- A change to phases, resource envelope, or recovery policy bumps the Plan
-  Revision and voids standing approvals.
+## Policy composition
 
-## Intent detection
+Watchdog owns observation and the single heartbeat. Add
+`../remote-job-phase-gate/SKILL.md` for multiple phases or a launch action.
+Add `../remote-job-watch-and-fix/SKILL.md` when the plan authorizes
+`auto_low_risk`; read `RISK_POLICY.md` before a repair. Recovery applies only to
+the current approved phase and returns control before the next phase gate.
 
-| User intent | Entry point and policy |
-| --- | --- |
-| "Check", "is it running", "did it finish" | One Observation, `observe_only`, no plan |
-| "Watch", "monitor", "tell me when it finishes" | `start`, Watchdog, `observe_only` |
-| "Plan this training", "what phases" | `plan` |
-| "Plan and run", "stop for approval between phases" | `start` with Phase Gate |
-| "Watch and fix", "keep it running", "handle routine failures" | `start` with Watch and Fix, `auto_low_risk` |
-| "Sleep", "monitor while I am away" | `sleep`: Cadence Mode only |
+Ambiguous recovery intent uses `observe_only`. The plan records authorized
+actions, resource limits, and stopping conditions; discovering a failure does
+not expand that authority. The shared contract defines lifecycle and outcomes.
 
-Policies compose. Sleep changes cadence, never authority. When recovery intent
-is ambiguous, use `observe_only`; repair authority is granted in the plan, not
-acquired by finding a bug.
+## Completion
 
-## Composition
-
-```text
-                         +-- Phase Gate: exact approved phase launches
-Watchdog foundation ----+
-                         +-- Watch and Fix: bounded low-risk recovery
-```
-
-Watchdog owns target observation and the single heartbeat per Target Key.
-Phase Gate and Watch and Fix layer onto it; neither creates a second timer.
-When both apply, recovery is limited to the current approved phase and control
-returns to Phase Gate before any later phase starts.
-
-Cadence or recovery policy changes between iterations update the same plan,
-state file, and heartbeat.
-
-## Safety defaults
-
-- Default to Watchdog and `observe_only` when intent is unclear.
-- Phase completion never implies approval for the next phase.
-- `FINISHED`, `FAILED`, `STOPPED`, and stopping monitoring follow the distinct
-  outcome rules in `CONTROL_CONTRACT.md`.
-- The state directory is preserved after every terminal state and named in the
-  outcome report as evidence.
+A one-shot check ends with an evidence-backed answer. `plan` ends with the
+written plan and unresolved discovery gaps. `start` ends only after the plan
+and approval requirements are satisfied and the heartbeat is verified and
+recorded, or a concrete scheduling/approval blocker is reported. An iteration
+records its observation and either leaves monitoring active, transfers to
+authorized recovery, or reports a terminal outcome or approval gate.

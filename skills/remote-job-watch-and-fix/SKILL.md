@@ -1,7 +1,8 @@
 ---
 name: remote-job-watch-and-fix
 description: Diagnose and automatically repair low-risk local or remote training failures within a pre-authorized envelope, while gating high-risk changes.
-user-invocable: true
+license: MIT
+compatibility: Requires the complete four-skill Remote Training Monitor collection and an agent with filesystem and shell access.
 ---
 
 # Remote Job Watch and Fix
@@ -53,7 +54,9 @@ provenance, cost, and authority—not on a fixed list of error strings.
 5. For `LOW`, verify identity, checkpoint, configuration, destination,
    resource impact, retry budget, and absence of duplicates.
 6. Apply the repair with a unique attempt identity and redo only the failed
-   step or smallest necessary scope.
+   step or smallest necessary scope. Preserve the Target Key, plan directory,
+   heartbeat, and accumulated retry counts; record the new current attempt
+   and reset its observation cursor before observing new logs.
 7. Verify the declared contract; append the attempt, risk decision, and
    result to the plan's History and bump the cause's retry count in
    `state.json`.

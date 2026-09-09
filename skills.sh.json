@@ -1,0 +1,16 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "Remote training",
+      "description": "Plan, observe, approve, and recover long-running remote jobs.",
+      "skills": [
+        "remote-training-monitor",
+        "remote-job-watchdog",
+        "remote-job-phase-gate",
+        "remote-job-watch-and-fix"
+      ]
+    }
+  ]
+}

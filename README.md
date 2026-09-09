@@ -1,5 +1,7 @@
 # Remote Training Monitor
 
+[![skills.sh](https://skills.sh/b/SeanYHan888/remote-training-monitor)](https://skills.sh/SeanYHan888/remote-training-monitor)
+
 Remote Training Monitor is a four-skill toolkit for Claude Code and Codex that
 plans, observes, gates, and recovers long-running remote jobs: training runs,
 batch inference, evaluation sweeps, and any pipeline that outlives a chat
@@ -37,7 +39,7 @@ observation:
 
 Every recurring watch begins with a **Run Plan**, written before the first
 heartbeat is armed and stored at `.remote-monitor/<target-key>/` in the
-project directory (kept out of git via `.git/info/exclude`):
+project directory (kept out of git via the repository's local exclude file):
 
 - `plan.md` holds the Phase Plan (each phase's entry condition, exit checks,
   artifacts, and launch action), the Monitoring Contract (identities, adapter,
@@ -45,6 +47,9 @@ project directory (kept out of git via `.git/info/exclude`):
   and History sections.
 - `state.json` holds the cursor, controller state, heartbeat identity, and
   current phase, so any wake can resume from disk.
+
+The Target Key stays stable across phases and retries. Each new attempt records
+its own job identity and artifact paths while reusing the monitor and heartbeat.
 
 The plan is drafted from read-only discovery of launch scripts, configs, and
 logs; the agent asks only for what it could not find. An observe-only plan
@@ -60,18 +65,23 @@ The router accepts fixed verbs so that a scheduled prompt is unambiguous:
 `stop <key>`, `wake <key>`, `sleep <key>`. Every heartbeat wake runs
 `iterate`, which reads `state.json` first and exits in one line when the
 controller is paused or awaiting approval. A wake never re-plans and never
-re-arms a heartbeat.
+re-arms a heartbeat. `status` reports cached state with its timestamp.
+“Monitor while I'm away” starts or reuses monitoring; only an explicit sleep
+or hourly request selects `SLEEP`.
 
 ## Harnesses
 
 The waiting mechanism is the only thing that differs between harnesses;
 evidence rules, state files, and authority are identical.
 
-| Harness | Durable heartbeat | Session-bound wait |
-| --- | --- | --- |
-| Claude Code | cron routine | background monitor or in-session scheduled wakeup |
-| Codex desktop app | scheduled task inside the chat (must run in the project directory, not a worktree) | background terminal, five-minute polls |
-| Codex CLI / IDE | none; the skill hands you a `codex exec` cron one-liner | bounded background-terminal polling, with disclosure that it ends with the session |
+| Harness | Mechanism |
+| --- | --- |
+| Claude Code | Use the exposed scheduling tool's documented lifetime; a cron-named tool is not assumed durable. |
+| Codex desktop app | Current-task heartbeat by default; standalone scheduling only when requested. Verify access to the same plan directory. |
+| Codex CLI / IDE | Available scheduler or bounded session polling; disclose session limits and offer operator-managed scheduling when needed. |
+
+Capability detection is read-only. Scheduling starts after the plan and any
+required approval; the agent verifies the timer rather than assuming it exists.
 
 Cadence is one of three modes: `ACTIVE` (10 min) when under about an hour
 remains, the job is unstable, or a phase boundary is near; `RELAXED` (30 min)
@@ -133,38 +143,51 @@ When invoked for a recurring watch, the router:
 6. Produces a concise report and pauses monitoring when the job finishes,
    fails, stops, or reaches an approval gate.
 
+The final phase produces an overall completion report after all required
+outcomes and artifacts are verified. It does not request next-phase approval.
+
 ## Installation
 
-### Claude Code
+Choose one installation method. Installing through both methods gives Claude
+Code duplicate copies of the same skills.
+
+### skills.sh (Codex, Claude Code, and other agents)
+
+Install the complete four-skill toolkit:
 
 ```bash
-mkdir -p ~/.claude/skill-sources ~/.claude/skills
-git clone https://github.com/SeanYHan888/remote-training-monitor.git \
-  ~/.claude/skill-sources/remote-training-monitor
-for s in remote-training-monitor remote-job-watchdog remote-job-phase-gate remote-job-watch-and-fix; do
-  ln -s ~/.claude/skill-sources/remote-training-monitor/skills/$s ~/.claude/skills/$s
-done
+npx skills@latest add SeanYHan888/remote-training-monitor --skill '*'
 ```
 
-### Codex
+The router composes the three companion skills and their shared control files,
+so partial installation is not supported.
 
-```bash
-mkdir -p ~/.codex/skill-sources ~/.codex/skills
-git clone https://github.com/SeanYHan888/remote-training-monitor.git \
-  ~/.codex/skill-sources/remote-training-monitor
-for s in remote-training-monitor remote-job-watchdog remote-job-phase-gate remote-job-watch-and-fix; do
-  ln -s ~/.codex/skill-sources/remote-training-monitor/skills/$s ~/.codex/skills/$s
-done
+The installer lets you choose which supported agents receive the skills. Use
+`npx skills update` later to pull a newer version.
+
+### Claude Code plugin
+
+Add this repository as a marketplace, then install the managed bundle:
+
+```text
+/plugin marketplace add SeanYHan888/remote-training-monitor
+/plugin install remote-training-monitor@seanyhan888-skills
 ```
 
-If any destination already exists, compare or remove that existing installation
-before creating its link. Restart the harness after installation so it
-discovers all four skills.
+Plugin skills use Claude Code's namespace. Invoke the router explicitly as
+`/remote-training-monitor:remote-training-monitor`, or describe the monitoring
+task in natural language.
+
+### Manual source installation
+
+Clone the repository when you want to inspect or modify the skills directly,
+then link each directory under `skills/` into your agent's skill directory.
+Restart the harness after a manual install so it discovers all four skills.
 
 To update later:
 
 ```bash
-git -C ~/.codex/skill-sources/remote-training-monitor pull --ff-only
+git -C /path/to/remote-training-monitor pull --ff-only
 ```
 
 ## Usage
@@ -206,6 +229,12 @@ cannot find, the plan marks as a gap and asks about.
 
 ```text
 remote-training-monitor/
+├── .claude-plugin/                 # Claude Code bundle metadata
+├── .github/workflows/              # Distribution validation CI
+├── CHANGELOG.md
+├── RELEASING.md
+├── scripts/validate-release.sh     # Local and CI release checks
+├── skills.sh.json                 # skills.sh page grouping
 ├── README.md
 ├── CONTEXT.md                       # Glossary of the terms the skills use
 ├── LICENSE
@@ -215,7 +244,7 @@ remote-training-monitor/
     │   ├── SKILL.md                 # Entry points, plan-first, routing
     │   ├── CONTROL_CONTRACT.md      # Shared states, authority, lifecycle
     │   ├── HARNESSES.md             # Claude Code vs Codex waiting mechanisms
-    │   ├── PLAN_FORMAT.md           # Run Plan and state.json schema
+    │   ├── PLAN_FORMAT.md           # Run Plan format and state.json example
     │   ├── PLAN_EXAMPLES.md         # Finished plans to copy
     │   ├── ADAPTERS.md              # Target-specific observation guidance
     │   ├── RISK_POLICY.md           # Recovery risk classification
@@ -239,7 +268,16 @@ remote-training-monitor/
 - Preserve original failures and use unique retry identities.
 - Keep logs bounded and point to authoritative artifacts instead of pasting
   large outputs.
-- When evidence or impact is uncertain, stop and ask.
+- Resolve uncertainty with bounded read-only evidence; request approval when
+  a proposed action exceeds the established authority.
+
+## Validation
+
+`bash scripts/validate-release.sh` checks package structure and discovery.
+The behavioral scenarios in [evals/README.md](evals/README.md) exercise routing,
+approval gates, completion, and recovery using simulated evidence. Record
+results separately: neither packaging checks nor simulations establish live
+scheduler or cluster reliability.
 
 ## License
 

@@ -40,7 +40,7 @@ The specific job, run, or process being monitored, resolved through its authorit
 _Avoid_: the training, the run (when identity matters)
 
 **Target Key**:
-The stable identifier for one attempt of one target, used to name its Run Plan, state, and heartbeat so that similar jobs never share them.
+The stable identifier for one monitored workflow, used to name its Run Plan, state, and heartbeat. Each phase launch or retry has a separate attempt identity; the Target Key persists across those attempts.
 _Avoid_: job name, run name
 
 **Control Plane**:

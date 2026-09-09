@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "remote-training-monitor",
+  "version": "0.1.0",
+  "description": "Plan, observe, gate, and safely recover long-running remote training and batch jobs.",
+  "author": {
+    "name": "SeanYHan888",
+    "url": "https://github.com/SeanYHan888"
+  },
+  "repository": "https://github.com/SeanYHan888/remote-training-monitor",
+  "license": "MIT",
+  "keywords": [
+    "remote-training",
+    "monitoring",
+    "slurm",
+    "kubernetes",
+    "machine-learning"
+  ],
+  "skills": [
+    "./skills/remote-training-monitor",
+    "./skills/remote-job-watchdog",
+    "./skills/remote-job-phase-gate",
+    "./skills/remote-job-watch-and-fix"
+  ]
+}

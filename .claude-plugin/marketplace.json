@@ -1,0 +1,23 @@
+{
+  "name": "seanyhan888-skills",
+  "owner": {
+    "name": "SeanYHan888",
+    "url": "https://github.com/SeanYHan888"
+  },
+  "description": "Agent skills for safe remote training operations.",
+  "plugins": [
+    {
+      "name": "remote-training-monitor",
+      "source": "./",
+      "description": "A four-skill toolkit for planning, observing, gating, and recovering long-running jobs.",
+      "category": "engineering",
+      "keywords": [
+        "remote-training",
+        "monitoring",
+        "slurm",
+        "kubernetes",
+        "machine-learning"
+      ]
+    }
+  ]
+}

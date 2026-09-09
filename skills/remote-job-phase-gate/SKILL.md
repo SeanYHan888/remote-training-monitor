@@ -1,7 +1,8 @@
 ---
 name: remote-job-phase-gate
 description: Monitor a multi-phase job, verify each phase, and launch only the exact named next phase after explicit matching approval.
-user-invocable: true
+license: MIT
+compatibility: Requires the complete four-skill Remote Training Monitor collection and an agent with filesystem and shell access.
 ---
 
 # Remote Job Phase Gate
@@ -37,18 +38,27 @@ plus the phase name or Plan Revision it matches.
 - A changed Gate Packet, launch action, resource impact, or Plan Revision
   voids the standing approval; present a new gate.
 
+For a not-yet-launched phase 1, matching plan approval leads directly to the
+entry-condition/identity/resource/duplicate checks and exact launch in steps
+4–5 below. There is no preceding phase to observe. Record the first attempt,
+then establish the heartbeat through the pending `start` route. A plan-only
+request still requires a request to start before execution.
+
 ## Per-phase loop
 
 1. Run Remote Job Watchdog for only the current phase.
 2. When its exit checks pass, create a compact Gate Packet: phase name,
    evidence, artifact identities, checks run, failures or exclusions, exact
    next phase, exact launch action, resource impact, and packet hash.
+   If this is the final phase, instead verify all required outcomes and
+   artifacts, report overall completion, and pause without a Gate Packet.
 3. Set `AWAITING_USER_APPROVAL` in `state.json`, pause the heartbeat, and ask
    once for approval tied to that named phase and packet hash.
 4. After matching approval, revalidate entry conditions, target identities,
    resource limits, and absence of duplicates.
 5. Launch the exact approved next phase once, record its scheduler or process
-   identities in History and `state.json`, advance `current_phase`, and
+   identities under a new attempt in History and `state.json`, reset the
+   observation cursor, advance `current_phase`, and
    reactivate the same heartbeat.
 
 The exact approved launch is Phase Gate's only direct target-plane write. It
@@ -62,9 +72,10 @@ without the appropriate authorization.
 
 Inherit the Watchdog outcome report contract for the current phase.
 
-- On phase completion, title the report `Phase finished`, place the short
+- On non-final phase completion, title the report `Phase finished`, place the short
   `FINISHED` report inside the Gate Packet, add the exact proposed next phase,
   set `AWAITING_USER_APPROVAL`, and pause the heartbeat.
+- On final-phase completion, follow the shared overall completion contract.
 - On phase failure, provide the actionable Watchdog report, identify whether
   authorized Watch and Fix recovery is available, and either transfer the
   current phase under `auto_low_risk` or wait. Do not create a next-phase

@@ -1,7 +1,8 @@
 ---
 name: remote-job-watchdog
-description: Watch a running job read-only and report its state, progress, and failures, using a single heartbeat for recurring updates. Use when the user wants a job observed but not touched - "watch this run", "keep an eye on the job", "tell me when it finishes", "check if it's still going". Covers training runs, inference and evaluation jobs, GPU and Slurm jobs, containers, and long scripts. Never restarts, resubmits, requeues, cancels, uploads, or edits the job.
-user-invocable: true
+description: Observe an existing training or compute job and report progress, health, and completion. Use for one-shot job checks or recurring read-only monitoring.
+license: MIT
+compatibility: Requires the complete four-skill Remote Training Monitor collection and an agent with filesystem and shell access.
 ---
 
 # Remote Job Watchdog
@@ -9,16 +10,16 @@ user-invocable: true
 **Purpose:** provide reliable target updates while keeping target observation
 separate from monitoring-plane control.
 
-Read `../remote-training-monitor/CONTROL_CONTRACT.md`, the harness row in
-`../remote-training-monitor/HARNESSES.md`, and the matching section of
-`../remote-training-monitor/ADAPTERS.md` before the first check. A recurring
-watch has a Run Plan (`../remote-training-monitor/PLAN_FORMAT.md`) before its
-heartbeat exists; the router writes it.
+For observation, read `../remote-training-monitor/CONTROL_CONTRACT.md` and
+the matching section of `../remote-training-monitor/ADAPTERS.md`.
+For recurring setup, use the router's `start` route and
+`../remote-training-monitor/PLAN_FORMAT.md`. Read
+`../remote-training-monitor/HARNESSES.md` only when managing the heartbeat.
 
 ## Internal functions
 
-Watchdog contains two internal functions. They are not separate user-facing
-skills because every Observation needs both and they share one Run Plan.
+Watchdog separates target observation from recurring monitoring control.
+One-shot checks use only Target Observer and return its evidence.
 
 ### Target Observer
 
@@ -45,13 +46,14 @@ Operate only on the monitoring plane:
 1. Write the cursor and observation fields to `state.json`; append material
    changes to the plan's History.
 2. Create, update, reactivate, or pause the one heartbeat for the Target Key,
-   using the mechanism in the harness row. Record its identity in
+   using the available scheduling mechanism. Record its identity in
    `state.json` and reuse a recorded identity instead of creating another.
 3. Report only authoritative changes and required outcome reports.
 4. Set the controller state before pausing, so a wake that still fires is a
    no-op wake.
 
-A non-recurring check writes no plan and creates no heartbeat.
+A non-recurring check writes no plan or state file and creates no heartbeat.
+It returns the observation directly; it does not call Heartbeat Controller.
 
 ## Cadence Mode
 
@@ -66,16 +68,16 @@ For a recurring request, Heartbeat Controller:
      unstable or newly launched or recovered, or a phase boundary is near;
    - `RELAXED` (30 min) for everything else;
    - `SLEEP` (60 min) only when the user asks for it.
-3. Arm one heartbeat at that interval per the harness row.
+3. On `start`, establish one heartbeat at that interval using the harness guide.
+   During `iterate`, update only an existing heartbeat; never create one.
 4. Re-estimate after a material throughput change, recovery, or phase
    transition and update the same heartbeat when the mode changes.
 
 ## Heartbeat durability
 
-A heartbeat is **durable** when it survives the session that armed it (a cron
-routine, a Codex scheduled task) or **session-bound** when it ends with its
-session (a background monitor, an in-session wakeup, background-terminal
-polling).
+A heartbeat is **durable** when its documented behavior survives the session
+that armed it, or **session-bound** when it ends with that session. Verify
+capabilities and resume behavior using `../remote-training-monitor/HARNESSES.md`.
 
 Match the mechanism to the horizon: durable when the target will outlive the
 session or the user steps away, session-bound when the user is present and
@@ -83,11 +85,9 @@ wants events streamed live. A session-bound heartbeat's silence after the
 session closes reads exactly like a healthy job, so the report that arms one
 says what stops when the session ends.
 
-Resuming a monitored target starts by re-resolving the heartbeat from
-`state.json`: a session-bound one is gone and is re-armed for the same Target
-Key; a durable one is still running and is reused. Observe before reporting,
-because the target may have reached a terminal state while unwatched, which is
-an outcome report rather than a fresh observation.
+Explicit `start` resolves the recorded heartbeat and observes the current
+attempt before resuming. Do not assume a durable timer is still active or a
+session timer has expired without checking.
 
 ## Sleep
 

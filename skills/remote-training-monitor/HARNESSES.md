@@ -1,67 +1,57 @@
-# Harnesses
+# Harness capabilities
 
-The harness is the agent runtime the skill is executing in. Detect it from the
-tools available in the session, record it in the Run Plan frontmatter, and
-follow only the matching row. Evidence rules, state files, and authority are
-identical across harnesses; only the waiting mechanism differs.
+Read this file when creating, changing, or resuming recurring monitoring.
+Inspect the callable scheduling tools and their documented persistence,
+execution directory, interval limits, and pause/update operations. Detection
+is read-only: never create a timer as a capability probe. An unknown runtime
+uses only capabilities it actually exposes.
 
-Detection order: a durable scheduling tool wins; then a session-bound wait
-tool; then none. When tools are ambiguous, attempt to arm a durable heartbeat
-and fall through this ladder on failure. An unrecognised harness follows the
-Codex CLI row.
+## Selection
 
-| Harness | Detect by | Durable heartbeat | Session-bound wait | Pause |
-| --- | --- | --- | --- | --- |
-| Claude Code | scheduled-wakeup, cron-routine, or background-monitor tools | cron routine | background monitor, or scheduled wakeup in this session | stop the wakeup or delete the routine |
-| Codex desktop app | a scheduled-task (automation) tool callable from chat | scheduled task, in-chat by default | background terminal, 5-minute polls | update or delete the task if possible |
-| Codex CLI / IDE | no scheduling tool | none; user-run cron calling `codex exec` | background terminal, 5-minute polls | stop polling |
+Prefer a verified durable mechanism when the job will outlive the session.
+Use a session-bound mechanism when that is what the runtime supplies, clearly
+stating when monitoring ends. A tool named cron or background does not by
+itself establish durability. If persistence is unknown, report it as unknown.
 
-Every row keeps the no-op wake as its backstop: an `iterate` that finds the
-controller paused in `state.json` exits with one line, so a heartbeat that
-could not be paused does no harm.
+| Runtime | Scheduling guidance |
+| --- | --- |
+| Codex desktop | Use the current task's heartbeat by default. Use a standalone scheduled task only when explicitly requested. Inspect the automation tool for supported creation, update, and pause fields. |
+| Claude Code | Inspect the exposed scheduling tool's lifetime and limits. Use durable routines only if explicitly supported; treat session-only cron/wakeups as session-bound. |
+| CLI, IDE, or other runtime | Use an available scheduler or bounded session wait. Without a durable mechanism, explain the limitation and provide an operator-managed scheduling option if needed. |
 
-## Claude Code
+## Establish or resume
 
-- User present and wants live events: session-bound background monitor.
-- Target will outlive the session or the user steps away: durable cron routine
-  with the prompt `$remote-training-monitor iterate <target-key>`.
-- A session-bound wait carries a disclosure in the report that announces it:
-  it stops when the session closes, and that silence reads like a healthy job.
+After the Run Plan and its approval rule are satisfied:
 
-## Codex desktop app
+1. Resolve the recorded heartbeat ID against the scheduler before creating
+   anything. Reuse an existing matching heartbeat. If lookup is unavailable
+   or ambiguous, report that uncertainty rather than create a potential duplicate.
+2. On every explicit `start`, observe the current target, including when the
+   recorded timer is already active, before reactivating a paused
+   monitor or replacing a confirmed-expired session timer. Terminal outcomes
+   and approval gates take precedence over reactivation.
+3. Schedule `$remote-training-monitor iterate <target-key>` at Watchdog's
+   selected cadence. Preserve any required invocation namespace. Verify the
+   execution directory can read the existing plan and state; a worktree is
+   acceptable only when it can access that same state, not a divergent copy.
+4. Verify and record the returned ID, interval, lifetime, and execution
+   directory in `state.json`. Report success only after confirmation. Keep
+   unchanged/non-actionable observations quiet unless periodic reports were
+   requested; notify on material changes, completion, failure, or required action.
 
-- Arm a scheduled task **inside the current chat** at the Cadence Mode
-  interval, prompt `$remote-training-monitor iterate <target-key>`. The thread
-  keeps context and results land where the user already is.
-- A standalone task (fresh chat per run, results in the Scheduled view) is the
-  option to offer when the user says they are stepping away.
-- Precondition, stated when the task is created: the task runs in the project
-  directory, never in a background worktree, or the plan file is unreachable.
-- Pause and delete by the agent are undocumented. Attempt them; rely on the
-  no-op wake.
+For updates or pauses, use the scheduler's supported operations on that ID.
+Set controller state before pausing. If the operation fails, preserve its ID
+and disclose the failure; subsequent wakes must honor the paused-state guard.
+An `iterate` never creates or replaces a timer.
 
-## Codex CLI / IDE
+## Session-only fallback
 
-No scheduled task can be armed from here. `start` does both of these in one
-report:
+Use the runtime's wait mechanism with its actual per-call limit. Bound the
+total polling horizon in the plan and report that monitoring ends with the
+session or that horizon. Do not claim monitoring is active after polling ends.
 
-1. Poll in-session with the background terminal, one poll of at most five
-   minutes at a time, bounded to the smaller of the estimated remaining time
-   and twelve polls. Say plainly that polling stops when the session closes.
-2. Hand the user the durable option, filled in:
-
-   ```bash
-   */10 * * * * cd <project-dir> && codex exec "\$remote-training-monitor iterate <target-key>"
-   ```
-
-   Use the Cadence Mode interval for the cron field. The user installs it; the
-   skill never edits a crontab.
-
-## Failure modes this table exists for
-
-- **Silent death**: a session-bound wait ends with its session while the job
-  runs on. Cured by preferring durable heartbeats and disclosing the rest.
-- **Duplicate tasks**: two heartbeats for one target. Cured by the heartbeat
-  identity in `state.json`; `start` reuses it before creating anything.
-- **Blocked turn**: a wait longer than the harness's poll cap. Cured by the
-  five-minute poll bound and the twelve-poll ceiling.
+If the user needs operator-managed cron, supply a command with absolute
+executable and project paths, safely quoted arguments, and the required
+environment. Validate the cadence expression: hourly is `0 * * * *`, not
+`*/60 * * * *`. Explain that the operator installs it and that scheduler
+availability and agent credentials must persist outside the interactive shell.

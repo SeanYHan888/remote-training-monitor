@@ -13,3 +13,8 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 ### Domain docs
 
 Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root, created lazily by `/domain-modeling`. See `docs/agents/domain.md`.
+
+### Releases
+
+Before packaging or publishing a release, follow `RELEASING.md` and run
+`bash scripts/validate-release.sh`.

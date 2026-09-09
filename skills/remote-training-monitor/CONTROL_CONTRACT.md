@@ -1,7 +1,7 @@
 # Remote Training Control Contract
 
-The shared interface for Watchdog, Phase Gate, and Watch and Fix. Read it once
-per invocation before applying a route-specific policy.
+The shared interface for observation and monitoring control. Read it when
+applying those policies; cached status needs only saved state.
 
 A **heartbeat** is the single recurring wake for one Target Key. Which
 mechanism provides it is the harness's business; `HARNESSES.md` has the rows.
@@ -24,9 +24,9 @@ Every recurring monitor has a Run Plan at
 - approval holder and exact approval-gated phase transitions; and
 - resource, cost, storage, publication, and destructive-action limits.
 
-The Target Key distinguishes attempts. Never reuse a heartbeat, checkpoint,
-output path, upload revision, or job identity because two jobs have similar
-names.
+The Target Key is stable for the workflow. Attempts have separate identities
+and preserved evidence, as defined in `PLAN_FORMAT.md`. Resolve the current
+attempt explicitly; similarity of job names never establishes identity.
 
 ## Authority planes
 
@@ -103,8 +103,10 @@ heartbeat. Each report names the state directory as preserved evidence.
   eligibility, and exact next action.
 - `STOPPED`: short report with who or what intentionally stopped the job when
   known, preserved work, latest safe resume point, and exact next action.
-- Phase completion uses `Phase finished`, embeds the short finished report in
-  the Gate Packet, and enters `AWAITING_USER_APPROVAL`.
+- Non-final phase completion uses `Phase finished`, embeds the short finished
+  report in the Gate Packet, and enters `AWAITING_USER_APPROVAL`.
+- Final-phase completion verifies all required phase outcomes and artifacts,
+  reports overall `FINISHED`, and pauses. It creates no next-phase gate.
 
 An unexpected cancellation, timeout, preemption, or abnormal stop is
 `FAILED`, not `STOPPED`, unless authoritative evidence proves completion.
