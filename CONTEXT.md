@@ -57,11 +57,19 @@ The agent runtime the skill is executing in: Claude Code, the Codex desktop app,
 _Avoid_: platform, environment, client
 
 **Heartbeat**:
-The single recurring wake mechanism for one Target Key: a Claude Code background monitor, scheduled wakeup, or cron routine; or a Codex in-chat or standalone scheduled task.
+The single wake mechanism for one Target Key: a Waiter, or an interval timer such as a Claude Code scheduled wakeup or cron routine or a Codex in-chat or standalone scheduled task.
 _Avoid_: timer, automation, poller, cron (as a generic term)
 
+**Wake Mode**:
+How a heartbeat wakes the agent: `COMPLETION` (once, when the current attempt leaves its running states or the deadline passes) or `INTERVAL` (timed wakes at a Cadence Mode). `COMPLETION` is the default wherever the harness re-invokes the agent when a background command exits.
+_Avoid_: polling mode, schedule type
+
+**Waiter**:
+The background shell command that provides a `COMPLETION` heartbeat. It polls the control plane without involving the agent and exits on a terminal state it actually read, on the deadline, or on a declared phase-exit or stall condition. Its exit prompts an Observation; it is never evidence of completion.
+_Avoid_: watcher, poller, background monitor
+
 **Cadence Mode**:
-The heartbeat interval expressed as one of three modes: `ACTIVE` (10 minutes), `RELAXED` (30 minutes), or `SLEEP` (60 minutes).
+The interval of an `INTERVAL` heartbeat, expressed as one of three modes: `ACTIVE` (10 minutes), `RELAXED` (30 minutes), or `SLEEP` (60 minutes).
 _Avoid_: deep sleep, poll interval, frequency
 
 **Cursor**:

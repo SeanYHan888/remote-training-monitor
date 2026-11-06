@@ -22,12 +22,14 @@ every later phase still needs approval.
 
 Reuse the single heartbeat owned by Watchdog. When recovery materially changes
 expected runtime or stability, have Watchdog re-estimate and set the Cadence
-Mode, normally `ACTIVE` after a repair. After recovery of a multi-phase job,
-return the same heartbeat to the Phase Gate contract.
+Mode, normally `ACTIVE` after a repair. Under `COMPLETION`, a repair that
+starts a new attempt gets one waiter for that attempt, with a deadline from
+the new estimate. After recovery of a multi-phase job, return the same
+heartbeat to the Phase Gate contract.
 
-Recovery runs at `ACTIVE`. When a `SLEEP` heartbeat detects a failure, stall,
-or ambiguity, first set the existing heartbeat to `ACTIVE`, then apply the
-authorized recovery contract. `SLEEP` may be re-entered only after recovery
+Under `INTERVAL`, recovery runs at `ACTIVE`. When a `SLEEP` heartbeat detects
+a failure, stall, or ambiguity, first set the existing heartbeat to `ACTIVE`,
+then apply the authorized recovery contract. `SLEEP` may be re-entered only after recovery
 verification and renewed stability.
 
 ## Recovery authority

@@ -62,7 +62,8 @@ target_key: slurm-4821
 harness: claude-code | codex-desktop | codex-cli
 control_plane: slurm | kubernetes | docker | systemd | managed | process | custom
 project_dir: /abs/path
-cadence_mode: ACTIVE | RELAXED | SLEEP
+wake_mode: COMPLETION | INTERVAL
+cadence_mode: ACTIVE | RELAXED | SLEEP   # INTERVAL only; omit under COMPLETION
 recovery_policy: observe_only | auto_low_risk
 plan_revision: 1
 created: 2026-09-04T12:00:00Z
@@ -81,7 +82,8 @@ created: 2026-09-04T12:00:00Z
 - Target identities: job id, attempt, owner, working directory on the host
 - Adapter and exact observation commands
 - Success, failure, and intentional-stop evidence
-- Cadence Mode and its basis (estimated remaining time, stability)
+- Wake Mode and its basis: the waiter's exit conditions and deadline, or the
+  Cadence Mode (estimated remaining time, stability)
 - Recovery policy, retry budget, rollback point requirements
 - Approval holder
 - Resource, cost, storage, publication, and destructive-action limits
@@ -93,7 +95,7 @@ created: 2026-09-04T12:00:00Z
 
 ## History
 
-<!-- append-only: phase outcomes, recovery attempts, cadence changes -->
+<!-- append-only: phase outcomes, recovery attempts, wake and cadence changes -->
 ```
 
 A phase whose launch action is "already running" has no gate before it. A
@@ -105,7 +107,7 @@ phase with a real launch action gates on Approval.
 {
   "target_key": "slurm-4821",
   "plan_revision": 1,
-  "heartbeat": { "harness": "codex-desktop", "id": "<task id>", "interval_min": 30, "durability": "durable", "project_dir": "/abs/path" },
+  "heartbeat": { "harness": "claude-code", "mode": "completion", "id": "<background task id>", "deadline": "2026-09-04T16:30:00Z", "durability": "session-bound", "project_dir": "/abs/path" },
   "controller_state": "ACTIVE",
   "current_phase": 1,
   "current_attempt": { "attempt_id": "phase-1-attempt-1", "control_plane": "slurm", "scope": "cluster-a", "job_id": "4821" },
@@ -124,13 +126,17 @@ or `unknown`. Before scheduling, `heartbeat` is null; before first launch,
 `current_attempt`, `job_state`, `health`, and `last_observed` may be null.
 Use `PAUSED` for a draft and `AWAITING_USER_APPROVAL` for a pending gate.
 
+An `INTERVAL` heartbeat records `"mode": "interval"` with `interval_min` in
+place of `deadline`. A plan without `wake_mode`, or a heartbeat without
+`mode`, was written before Wake Mode existed and is `INTERVAL`.
+
 `iterate` reads this file first. Controller state `PAUSED` or
 `AWAITING_USER_APPROVAL` makes the wake a no-op wake.
 
 ## Mutation
 
 - The skill appends to Approvals and History and updates `current_phase`,
-  cadence, and state fields.
+  wake mode, cadence, and state fields.
 - Phase semantics, resource envelope, and recovery policy change only by
   bumping `plan_revision`, which voids every standing Approval. The Gate
   Packet hash rule in Phase Gate is this rule applied per phase.

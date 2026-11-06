@@ -37,13 +37,13 @@ observation:
 
 ## Plan-first
 
-Every recurring watch begins with a **Run Plan**, written before the first
-heartbeat is armed and stored at `.remote-monitor/<target-key>/` in the
+Every monitor begins with a **Run Plan**, written before the heartbeat is
+armed and stored at `.remote-monitor/<target-key>/` in the
 project directory (kept out of git via the repository's local exclude file):
 
 - `plan.md` holds the Phase Plan (each phase's entry condition, exit checks,
   artifacts, and launch action), the Monitoring Contract (identities, adapter,
-  cadence, evidence rules, recovery policy, limits), and append-only Approvals
+  wake mode, evidence rules, recovery policy, limits), and append-only Approvals
   and History sections.
 - `state.json` holds the cursor, controller state, heartbeat identity, and
   current phase, so any wake can resume from disk.
@@ -65,9 +65,10 @@ The router accepts fixed verbs so that a scheduled prompt is unambiguous:
 `stop <key>`, `wake <key>`, `sleep <key>`. Every heartbeat wake runs
 `iterate`, which reads `state.json` first and exits in one line when the
 controller is paused or awaiting approval. A wake never re-plans and never
-re-arms a heartbeat. `status` reports cached state with its timestamp.
-“Monitor while I'm away” starts or reuses monitoring; only an explicit sleep
-or hourly request selects `SLEEP`.
+adds a second heartbeat. `status` reports cached state with its timestamp.
+“Monitor while I'm away” starts or reuses monitoring; only an explicit request
+for periodic check-ins selects timed wakes. `wake` and `sleep` apply to timed
+monitors only.
 
 ## Harnesses
 
@@ -76,16 +77,24 @@ evidence rules, state files, and authority are identical.
 
 | Harness | Mechanism |
 | --- | --- |
-| Claude Code | Use the exposed scheduling tool's documented lifetime; a cron-named tool is not assumed durable. |
-| Codex desktop app | Current-task heartbeat by default; standalone scheduling only when requested. Verify access to the same plan directory. |
-| Codex CLI / IDE | Available scheduler or bounded session polling; disclose session limits and offer operator-managed scheduling when needed. |
+| Claude Code | Completion wake: one background shell command waits for the job to end and the session is re-invoked when it exits. Session-bound. Timed wakes only on request. |
+| Codex desktop app | Timed wakes on the current-task heartbeat by default; standalone scheduling only when requested. Verify access to the same plan directory. |
+| Codex CLI / IDE | Completion wake if the runtime re-invokes the agent when a background command exits; otherwise an available scheduler or bounded session polling. Disclose session limits and offer operator-managed scheduling when needed. |
 
-Capability detection is read-only. Scheduling starts after the plan and any
-required approval; the agent verifies the timer rather than assuming it exists.
+Capability detection is read-only. The heartbeat is armed after the plan and
+any required approval; the agent verifies it rather than assuming it exists.
 
-Cadence is one of three modes: `ACTIVE` (10 min) when under about an hour
-remains, the job is unstable, or a phase boundary is near; `RELAXED` (30 min)
-otherwise; `SLEEP` (60 min) only when you ask.
+A monitor has one of two wake modes:
+
+- `COMPLETION` (default where supported): a background waiter polls the
+  scheduler in shell and wakes the agent once, when the job leaves its pending
+  and running states or a deadline passes. The agent spends no turns while the
+  job runs. A crash wakes it at once; a job that hangs without exiting is
+  noticed at the deadline unless the plan gives the waiter a stall rule.
+- `INTERVAL`: timed wakes at a Cadence Mode, for harnesses with no completion
+  wake or when you ask for periodic check-ins. `ACTIVE` (10 min) when under
+  about an hour remains, the job is unstable, or a phase boundary is near;
+  `RELAXED` (30 min) otherwise; `SLEEP` (60 min) only when you ask.
 
 ## Safety model
 
@@ -109,7 +118,7 @@ Important defaults:
 - A detected bug does not grant permission to fix it.
 - Completing one phase does not grant permission to start the next phase.
 - Phase Gate and Watch and Fix reuse the Watchdog heartbeat; they do not create
-  competing timers.
+  competing timers or waiters.
 - Recovery inside a multi-phase workflow is limited to the currently approved
   phase.
 - Destructive, scientific, architectural, credential, publication, and
@@ -119,7 +128,7 @@ Important defaults:
   terminal state as evidence.
 
 The shared [control contract](skills/remote-training-monitor/CONTROL_CONTRACT.md)
-defines job, health, controller, and cadence states. The
+defines job, health, controller, wake, and cadence states. The
 [harness guide](skills/remote-training-monitor/HARNESSES.md) selects the
 waiting mechanism. The [plan format](skills/remote-training-monitor/PLAN_FORMAT.md)
 and [examples](skills/remote-training-monitor/PLAN_EXAMPLES.md) define the Run
@@ -130,7 +139,7 @@ bounded automatic repairs from approval-required changes.
 
 ## How it works
 
-When invoked for a recurring watch, the router:
+When invoked to watch a job, the router:
 
 1. Resolves the entry point and detects the harness.
 2. Resolves a stable Target Key and the job's authoritative control plane.
@@ -139,7 +148,8 @@ When invoked for a recurring watch, the router:
 4. Arms one heartbeat via Watchdog and layers Phase Gate or Watch and Fix only
    when the plan grants the corresponding authority.
 5. On every wake, reads `state.json`, observes bounded new evidence, and keeps
-   job state, health, controller state, and cadence separate.
+   job state, health, controller state, and wake mode separate. Under
+   `COMPLETION` the first wake is normally the job ending.
 6. Produces a concise report and pauses monitoring when the job finishes,
    fails, stops, or reaches an approval gate.
 

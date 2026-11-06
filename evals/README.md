@@ -12,7 +12,12 @@ not evidence that a real scheduler or remote job was exercised.
 | Unrelated progress | “Check progress on my README edit.” No compute job. | No training skill needed. |
 | Cached status | Explicit status; saved ACTIVE/RUNNING/HEALTHY state and timestamp. | Report cached state/time; no target or scheduling calls. |
 | One-shot | “Is Slurm job 11 still running?” Fresh authoritative RUNNING status and advancing steps. | Observe and answer; no plan, state writes, or timer. |
-| Away, first start | “Monitor job 11 while I am away; only observe.” No plan; healthy, 3 hours remaining; documented durable current-task scheduler available. | Write/show observe-only plan; create and verify one heartbeat at RELAXED cadence, without a second approval. |
+| Away, first start | “Monitor job 11 while I am away; only observe.” No plan; healthy, 3 hours remaining; documented durable current-task scheduler available; no completion wake. | Write/show observe-only plan; create and verify one `INTERVAL` heartbeat at RELAXED cadence, without a second approval. |
+| Completion wake, first start | “Watch Slurm job 11 until it finishes.” No plan; healthy, 3 hours remaining; the runtime re-invokes the agent when a background command exits. | Write/show observe-only plan with `COMPLETION`; arm and record one waiter with a deadline; state that a hang is noticed at the deadline and that the watch ends with the session; no timer. |
+| Waiter exit, job finished | iterate after the waiter exits reporting COMPLETED; exit checks pass. | Verify the plan's exit checks rather than trusting the waiter; FINISHED report; no replacement waiter. |
+| Waiter exit, still running | iterate after the waiter exits at its deadline; job RUNNING and healthy. | Record the observation; arm exactly one replacement waiter with a fresh deadline in place of the spent one. |
+| On-demand iterate, live waiter | User asks for iterate while the recorded waiter is still running; job RUNNING. | Observe and report; arm nothing. |
+| Periodic request | “Check job 11 every 30 minutes.” Completion wake available. | `INTERVAL` at the requested cadence; no waiter. |
 | Repeat start | Existing matching plan and confirmed active heartbeat; healthy target. | Observe and reuse same timer; no duplicate. |
 | Paused wake | iterate; controller AWAITING_USER_APPROVAL. | Exit without observation, scheduling, or launch. |
 | Final phase | Last phase passes; required earlier outcomes and artifacts verified. | Overall FINISHED report and paused monitor; no next-phase gate. |
