@@ -11,7 +11,7 @@ target_key: slurm-4821
 harness: claude-code
 control_plane: slurm
 project_dir: /home/ml-user/projects/llm-ft
-cadence_mode: RELAXED
+wake_mode: COMPLETION
 recovery_policy: observe_only
 plan_revision: 1
 created: 2026-09-04T09:12:00Z
@@ -30,7 +30,7 @@ created: 2026-09-04T09:12:00Z
 - Identities: Slurm job 4821, user ml-user, workdir `/scratch/ml-user/llm-ft/run-0904`
 - Adapter: Slurm. `squeue -j 4821`, `scontrol show job 4821`, `sacct -j 4821`; logs from StdOut path
 - Success: exit checks above. Failure: State in FAILED/TIMEOUT/PREEMPTED, or traceback in StdErr. Stop: State=CANCELLED by ml-user
-- Cadence: RELAXED. Basis: 20000 steps at ~1.9 step/s observed, ~2.9 h remaining, two healthy observations
+- Wake: COMPLETION. The waiter exits when sacct shows 4821 outside PENDING/RUNNING, or at the deadline 2026-09-04T15:30Z (end of the job's Slurm time limit plus 10 min). Basis: 20000 steps at ~1.9 step/s observed, ~2.9 h remaining. No stall rule, so a hang is noticed at the deadline
 - Recovery: observe_only. Approval holder: operator
 - Limits: none granted; read-only
 - Discovery gaps: none
@@ -39,7 +39,7 @@ created: 2026-09-04T09:12:00Z
 
 ## History
 
-- 2026-09-04T09:12Z started, heartbeat `rtm-slurm-4821` at 30 min; lifetime and execution directory verified and recorded in state.json
+- 2026-09-04T09:12Z started, heartbeat is a completion waiter (background task `<id>`), session-bound; deadline and execution directory verified and recorded in state.json
 ```
 
 ## Three-phase train, eval, upload with Phase Gate and low-risk recovery
@@ -50,6 +50,7 @@ target_key: slurm-4830
 harness: codex-desktop
 control_plane: slurm
 project_dir: /Users/operator/projects/llm-ft
+wake_mode: INTERVAL
 cadence_mode: ACTIVE
 recovery_policy: auto_low_risk
 plan_revision: 1
@@ -71,7 +72,7 @@ created: 2026-09-04T10:00:00Z
 - Identities: job 4830 now; later phases get their own ids recorded in History
 - Adapter: Slurm as above; phase 3 is a generic process
 - Success/failure/stop per phase exit checks; unexpected cancellation is FAILED
-- Cadence: ACTIVE. Basis: ~50 min remaining in phase 1
+- Wake: INTERVAL at ACTIVE (Codex desktop has no completion wake). Basis: ~50 min remaining in phase 1
 - Recovery: auto_low_risk, retry budget 2 per cause, rollback point = last checkpoint. Approval holder: operator
 - Limits: 1 node, no new GPUs, no deletion, destination only org/mix-v3, no visibility change
 - Discovery gaps: eval benchmark list confirmed by operator
@@ -98,6 +99,7 @@ target_key: k8s-infer-mixv3-7f2c1
 harness: codex-cli
 control_plane: kubernetes
 project_dir: /home/ml-user/projects/serving
+wake_mode: INTERVAL
 cadence_mode: ACTIVE
 recovery_policy: observe_only
 plan_revision: 1
@@ -117,7 +119,7 @@ created: 2026-09-04T14:20:00Z
 - Identities: namespace ml, Job infer-mixv3, uid 7f2c1…
 - Adapter: Kubernetes. `kubectl get job/infer-mixv3 -n ml`, `kubectl logs --since=…`, events, restart counts
 - Success: exit checks. Failure: condition Failed, restart count climbing, OOMKilled. Stop: Job deleted by ml-user
-- Cadence: ACTIVE. Basis: ~40 min remaining at observed throughput
+- Wake: INTERVAL at ACTIVE. Basis: ~40 min remaining at observed throughput
 - Recovery: observe_only. Approval holder: operator
 - Discovery gaps: none
 - Harness note: codex-cli, in-session polling bounded to 40 minutes; per-call waits follow runtime limits. Operator-managed scheduling is needed to outlive the session.

@@ -1,8 +1,8 @@
 ---
 name: remote-training-monitor
-description: Plan and coordinate monitoring of long-running training, evaluation, and compute jobs. Use for recurring monitoring, approval-gated pipelines, or authorized recovery; route one-shot job checks to Watchdog.
+description: Plan and coordinate monitoring of long-running training, evaluation, and compute jobs. Use for watching a job until it finishes, approval-gated pipelines, or authorized recovery; route one-shot job checks to Watchdog.
 license: MIT
-compatibility: Requires all four skills from this repository and an agent with filesystem and shell access. Recurring monitoring also requires scheduler or background-process support.
+compatibility: Requires all four skills from this repository and an agent with filesystem and shell access. Monitoring also requires background-process or scheduler support.
 ---
 
 # Remote Training Monitor
@@ -19,11 +19,11 @@ companion is missing, report the missing path and the collection install command
 | One-shot job check | Use `../remote-job-watchdog/SKILL.md` for one observation; no plan or heartbeat. |
 | `status <key>` | Read `.remote-monitor/<key>/state.json`; report saved state and observation timestamp, explicitly identifying it as cached. No target observation or scheduler call. |
 | `plan` | Read `PLAN_FORMAT.md` and the relevant section of `ADAPTERS.md`; discover, write, and present the plan. Stop before launching or scheduling. |
-| `start` / recurring watch | Read `CONTROL_CONTRACT.md` and `../remote-job-watchdog/SKILL.md`. Reuse an existing plan or create one using `PLAN_FORMAT.md`; apply its approval rule, then establish one heartbeat using `HARNESSES.md`. |
-| `iterate <key>` | Read saved state first. If paused or awaiting approval, exit without observing. Otherwise use Watchdog for one iteration and the plan's authorized policy. Never re-plan or create a heartbeat. |
+| `start` / watch until done | Read `CONTROL_CONTRACT.md` and `../remote-job-watchdog/SKILL.md`. Reuse an existing plan or create one using `PLAN_FORMAT.md`; apply its approval rule, then establish one heartbeat using `HARNESSES.md`: a completion wake where the harness supports one, an interval timer otherwise. |
+| `iterate <key>` | Follow Watchdog's Iteration steps, including the saved-state guard and required plan reload and validation before observation. Never re-plan or add a heartbeat; replace a completion waiter only as Iteration allows. |
 | `approve <key> <phase or revision>` | Read the plan and `../remote-job-phase-gate/SKILL.md`; record matching user approval. Continue an approved pending start or phase launch, then resume the same heartbeat. |
 | `stop <key>` | Read saved state and the lifecycle in `CONTROL_CONTRACT.md`; pause monitoring through `HARNESSES.md`, leaving the job untouched. |
-| `wake <key>` / `sleep <key>` | Use Watchdog's Cadence Mode guidance and `HARNESSES.md` to update the existing monitor. These change cadence, not authority or a paused approval gate. |
+| `wake <key>` / `sleep <key>` | `INTERVAL` monitors only. Use Watchdog's Cadence Mode guidance and `HARNESSES.md` to update the existing monitor. These change cadence, not authority or a paused approval gate. A `COMPLETION` monitor has no cadence: say so in one line and offer `iterate <key>` for an observation now. |
 
 A missing plan/state for a keyed command is a concise diagnostic naming the
 expected path and execution directory. Only an explicit `start` may establish
@@ -31,8 +31,10 @@ or resume a monitor, including continuation of that start after approval.
 Read references only for the chosen route; reuse material already loaded.
 
 “Monitor while I'm away” means `start`; for an existing monitor it reuses that
-monitor. Absence alone does not request `SLEEP`. An explicit request for hourly
-or sleep monitoring selects that cadence after establishing the monitor.
+monitor. Without a stated cadence, `start` uses `COMPLETION` where the harness
+supports it: the agent is woken when the job ends, not on a timer. An explicit
+request for periodic check-ins ("every 30 minutes", hourly, sleep) selects
+`INTERVAL` at that cadence. Absence alone does not request `SLEEP`.
 
 ## Policy composition
 

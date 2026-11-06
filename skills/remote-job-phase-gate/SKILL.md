@@ -22,10 +22,12 @@ later phase starts.
 
 Reuse the single Watchdog heartbeat. Pause it at `AWAITING_USER_APPROVAL`
 after setting that controller state; after approval, update the same
-heartbeat for the newly approved phase and reactivate it.
+heartbeat for the newly approved phase and reactivate it. Under `COMPLETION`,
+reactivating means arming one waiter for the new phase's attempt.
 
-`SLEEP` may be used inside the currently approved phase; it changes only the
-interval. Return to `ACTIVE` before evaluating a phase boundary.
+`SLEEP` may be used inside the currently approved phase of an `INTERVAL`
+monitor; it changes only the interval. Return to `ACTIVE` before evaluating a
+phase boundary.
 
 ## Approval
 

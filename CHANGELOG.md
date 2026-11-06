@@ -2,6 +2,17 @@
 
 All notable changes to Remote Training Monitor are documented here.
 
+## Unreleased
+
+- Add Wake Mode. `COMPLETION` arms one background waiter that wakes the agent
+  when the job leaves its running states or a deadline passes, and is the
+  default wherever the harness re-invokes the agent on a background command's
+  exit (Claude Code). The 10/30/60-minute Cadence Modes move under `INTERVAL`,
+  used for harnesses with no completion wake or on request.
+- Record `wake_mode` in the Run Plan and `mode` plus `deadline` in the
+  heartbeat state. Plans and state written before Wake Mode read as `INTERVAL`.
+- Require `iterate` to reload and validate the plan before every observation.
+
 ## 0.1.0 - 2026-09-09
 
 - Shorten discovery descriptions and route references by requested action.

@@ -3,14 +3,15 @@
 The shared interface for observation and monitoring control. Read it when
 applying those policies; cached status needs only saved state.
 
-A **heartbeat** is the single recurring wake for one Target Key. Which
-mechanism provides it is the harness's business; `HARNESSES.md` has the rows.
-Every wake runs `iterate <target-key>` and reads the state file before
-observing.
+A **heartbeat** is the single wake mechanism for one Target Key: a completion
+waiter that fires when the current attempt leaves its running states, or an
+interval timer. Which mechanism provides it is the harness's business;
+`HARNESSES.md` has the rows. Every wake runs `iterate <target-key>` and reads
+the state file before observing.
 
 ## Run Plan
 
-Every recurring monitor has a Run Plan at
+Every monitor has a Run Plan at
 `.remote-monitor/<target-key>/plan.md` and its `state.json`, formatted as in
 `PLAN_FORMAT.md`. The Monitoring Contract section records:
 
@@ -18,7 +19,8 @@ Every recurring monitor has a Run Plan at
 - authoritative control plane and observation adapter;
 - current phase, declared entry condition, exit checks, and expected artifacts;
 - success, failure, and intentional-stop evidence;
-- Cadence Mode, heartbeat durability, and the single heartbeat identity;
+- Wake Mode with its deadline or Cadence Mode, heartbeat durability, and the
+  single heartbeat identity;
 - recovery policy: `observe_only` or `auto_low_risk`;
 - retry budget, rollback point requirements, and verification checks;
 - approval holder and exact approval-gated phase transitions; and
@@ -53,8 +55,10 @@ Do not mix these dimensions:
 - **Health:** `HEALTHY`, `DEGRADED`, `STALLED`, or `AMBIGUOUS`.
 - **Controller state:** `ACTIVE`, `SLEEP`, `RECOVERING`,
   `AWAITING_USER_APPROVAL`, or `PAUSED`.
-- **Cadence Mode:** `ACTIVE` at 10 minutes, `RELAXED` at 30 minutes, or
-  `SLEEP` at 60 minutes.
+- **Wake Mode:** `COMPLETION` (one wake when the current attempt leaves its
+  running states, or at the deadline) or `INTERVAL` (timed wakes).
+- **Cadence Mode** (`INTERVAL` only): `ACTIVE` at 10 minutes, `RELAXED` at 30
+  minutes, or `SLEEP` at 60 minutes.
 
 A running job may be stalled or degraded. `AWAITING_USER_APPROVAL` is a
 controller state, not a job outcome.
@@ -69,24 +73,29 @@ controller state, not a job outcome.
   later phase.
 - Phase Gate may launch the exact approved next phase once, record the new
   target identities in History, and reactivate the same heartbeat.
-- The user may switch between `observe_only` and `auto_low_risk`, or between
-  Cadence Modes, at any point. Preserve the Target Key, cursor, and heartbeat
-  identity; a recovery-policy change bumps the Plan Revision.
+- The user may switch between `observe_only` and `auto_low_risk`, or change
+  the Wake Mode or Cadence Mode, at any point. Preserve the Target Key and
+  cursor, and keep one heartbeat; a recovery-policy change bumps the Plan
+  Revision.
 
 ## Heartbeat lifecycle
 
 One Watchdog-owned heartbeat per Target Key:
 
-1. Create it only for a recurring monitoring request, after the Run Plan is
-   written and the approval rule is satisfied.
+1. Create it only for a monitoring request, never for a one-shot check, after
+   the Run Plan is written and the approval rule is satisfied.
 2. Record its identity in `state.json`; `start` reuses a recorded identity
    rather than creating a second heartbeat.
 3. Reuse and update it when cadence, phase, or recovery state changes. Phase
-   Gate, recovery, and sleep share it.
+   Gate, recovery, and sleep share it. A completion waiter watches one attempt
+   and fires once: a new attempt, a new phase, or a job still running after
+   its waiter exited gets one replacement waiter, recorded as the same
+   heartbeat. Never run two waiters for one Target Key.
 4. Pause it for `FINISHED`, `STOPPED`, `AWAITING_USER_APPROVAL`, a user
    request to stop monitoring, or a `FAILED` state that is not transferred to
    an authorized recovery loop. Set the controller state first, so a wake that
-   still fires is a no-op wake.
+   still fires is a no-op wake. A waiter that has already exited needs no
+   pause; a live one is stopped.
 5. Reactivate it only when the same Run Plan resumes or an approved next phase
    receives new exact identities.
 
