@@ -4,6 +4,10 @@ All notable changes to Remote Training Monitor are documented here.
 
 ## Unreleased
 
+- Add a Wording section to `REPORT_FORMAT.md` drawn from the `unslop` rule
+  catalog (whole sentences, named actors, values over adjectives, no
+  arrows or commentary), reword its example and the History line shape
+  (`<STATE>. Next: <NEXT>`), and apply the same rules to the board.
 - Replace the five state dimensions with three readable fields: one run
   lifecycle (`PLANNED`, `APPROVED`, `QUEUED`, `RUNNING`, `PASSED`, `FAILED`,
   `CANCELLED`), health while running (`FINE`, `SLOW`, `STALLED`, `UNKNOWN`)

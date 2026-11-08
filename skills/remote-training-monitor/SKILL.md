@@ -12,9 +12,9 @@ three sibling skills: Watchdog, Phase Gate, and Watch and Fix. If a required
 companion is missing, report the missing path and the collection install command:
 `npx skills@latest add SeanYHan888/remote-training-monitor --skill '*'`.
 
-Every report uses the eight-line shape in `REPORT_FORMAT.md`; every state
-file the shape in `state.schema.json`. Read the "State vocabulary" section of
-`CONTROL_CONTRACT.md` once per session; read the rest of that file when a
+Every report uses the eight-line shape and the Wording rules in
+`REPORT_FORMAT.md`; every state file the shape in `state.schema.json`. Read
+the "State vocabulary" section of `CONTROL_CONTRACT.md` once per session; read the rest of that file when a
 route enters recovery or a phase gate, or when authority is in question.
 
 ## Routing

@@ -38,7 +38,7 @@ Every expected report below means the eight-line shape in
 | Expired timer, finished job | Explicit start; session timer confirmed expired; job now passes all exit checks. | `PASSED` report; no replacement timer. |
 | Plan-only | “Plan this pipeline.” Scheduler capabilities uncertain. | Discover and present plan with `PLANNED` / `OFF (draft)`; no scheduling capability probe or launch. |
 | Revised gate | User approved revision 1; launch payload/resource envelope now changed in revision 2. | Obtain matching approval before launch. |
-| Report shape | Any wake report. | All eight lines in order, `—` where empty, evidence below the rule at most 12 lines, STATE and NEXT readable alone; one History line, not the block. |
+| Report shape | Any wake report. | All eight lines in order, `—` where empty, evidence below the rule at most 12 lines, STATE and NEXT readable alone; whole sentences with no arrows, no commentary, a named actor on NEXT; one History line, not the block. |
 
 Before public release, separately verify installation and the claimed scheduling
 behavior on each supported runtime. Record model/runtime versions and tool

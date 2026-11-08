@@ -56,7 +56,8 @@ Operate only on the monitoring plane:
 2. Create, update, reactivate or pause the one heartbeat for the Target Key,
    using the available background or scheduling mechanism. Record its id in
    `state.json` and reuse a recorded id instead of creating another.
-3. Report in the eight-line shape. Report every wake that changes the run
+3. Report in the eight-line shape, worded per its Wording rules. Report
+   every wake that changes the run
    state, health or checks, every start, and every required action; a wake
    that changes nothing under `INTERVAL` is one line unless periodic reports
    were requested.

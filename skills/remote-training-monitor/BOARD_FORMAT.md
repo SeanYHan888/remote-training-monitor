@@ -8,10 +8,10 @@ report (`REPORT_FORMAT.md`) is one run; the board is every run.
 
 `scripts/board.py <project-dir>` reads every `.remote-monitor/*/state.json`,
 validates each against `state.schema.json`, groups the valid ones into lanes
-and prints Markdown. Nothing on the board is typed by hand, so it is only as
-good as the state files: a monitor that writes `run_name`, `since`,
-`progress`, `checks` and `next_action` on every wake shows up readable; one
-that does not shows up as dashes.
+and prints Markdown. Nobody types anything on the board, so it is only as
+good as the state files. A monitor that writes `run_name`, `since`,
+`progress`, `checks` and `next_action` on every wake fills its row; one that
+does not gets dashes.
 
 The `board` route runs the script, writes the output to
 `.remote-monitor/BOARD.md`, and shows it. `status` with no key does the same.
@@ -34,15 +34,15 @@ Columns: Run · Job · State · Health · Since · Progress · Monitor · Next. 
 header line counts each lane so the first line alone says whether anything
 needs the user.
 
-## Planned work the skill does not hold
+## Planned work without a Run Plan
 
 Runs that exist only as a packet, a plan document or a queue entry elsewhere
 in the project are not on the board until a Run Plan exists for them. When the
 project adapter (`PLAN_FORMAT.md`, "Project adapter") names a
 `planned_source`, the `board` route reads it after the script runs and appends
 one section, `## Planned elsewhere`, with one line per item: name, what it
-waits on, where it is written. Read-only; the route writes nothing into that
-source.
+waits on, where it is written. The route reads that source and writes nothing
+into it.
 
 ## Example
 
@@ -55,7 +55,7 @@ Needs you: 1 · running: 1 · queued: 1 · planned: 1 · done (7 d): 1 · failed
 
 | Run | Job | State | Health | Since | Progress | Monitor | Next |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| mix-v3 train→eval→upload | slurm 4830 | PASSED | — | 2026-11-07T06:40Z | checks 5/5 | waiting on you: approve slurm-4830 eval (gate 7c1d…) | approve slurm-4830 eval |
+| mix-v3 train, eval, upload | slurm 4830 | PASSED | — | 2026-11-07T06:40Z | checks 5/5 | waiting on you: approve slurm-4830 eval (gate 7c1d…) | approve slurm-4830 eval |
 
 ## Running
 
@@ -73,7 +73,7 @@ Needs you: 1 · running: 1 · queued: 1 · planned: 1 · done (7 d): 1 · failed
 
 | Run | Job | State | Health | Since | Progress | Monitor | Next |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| mix-v3 ablation | — | PLANNED | — | 2026-11-06T18:00Z | — | off (draft) | rebuild packet on c808cb4, then operator's hash |
+| mix-v3 ablation | — | PLANNED | — | 2026-11-06T18:00Z | — | off (draft) | operator rebuilds the packet on c808cb4 and sends its hash |
 
 ## Failed or cancelled
 
