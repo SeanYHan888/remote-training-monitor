@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "remote-training-monitor state.json",
+  "description": "The mutable monitoring state for one Target Key. Enum values are defined in CONTROL_CONTRACT.md. scripts/validate_state.py checks a file against this schema with the standard library only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "target_key", "run_name", "plan_revision", "run_state", "since", "health",
+    "monitor", "heartbeat", "current_phase", "current_attempt", "progress",
+    "checks", "cursor", "next_action", "last_observed", "retries"
+  ],
+  "properties": {
+    "target_key": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "run_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "plan_revision": { "type": "integer", "minimum": 1 },
+    "run_state": { "enum": ["PLANNED", "APPROVED", "QUEUED", "RUNNING", "PASSED", "FAILED", "CANCELLED"] },
+    "since": { "type": ["string", "null"], "description": "When run_state last changed, ISO 8601." },
+    "health": { "enum": ["FINE", "SLOW", "STALLED", "UNKNOWN", null], "description": "Only while RUNNING; null otherwise." },
+    "monitor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "reason"],
+      "properties": {
+        "state": { "enum": ["WATCHING", "RECOVERING", "WAITING", "OFF"] },
+        "reason": { "type": ["string", "null"], "maxLength": 120 }
+      }
+    },
+    "heartbeat": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["harness", "mode", "id", "durability", "project_dir"],
+      "properties": {
+        "harness": { "type": "string" },
+        "mode": { "enum": ["completion", "interval"] },
+        "id": { "type": "string", "maxLength": 64, "description": "The scheduler or background-task id alone. Prose goes to History." },
+        "deadline": { "type": ["string", "null"] },
+        "interval_min": { "type": ["integer", "null"], "minimum": 1 },
+        "cadence": { "enum": ["ACTIVE", "RELAXED", "SLEEP", null] },
+        "durability": { "enum": ["durable", "session-bound", "unknown"] },
+        "project_dir": { "type": "string" }
+      }
+    },
+    "current_phase": { "type": "integer", "minimum": 1 },
+    "current_attempt": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["attempt_id", "control_plane", "scope", "job_id"],
+      "properties": {
+        "attempt_id": { "type": "string" },
+        "control_plane": { "enum": ["slurm", "kubernetes", "docker", "systemd", "managed", "process", "custom"] },
+        "scope": { "type": ["string", "null"] },
+        "job_id": { "type": ["string", "null"] }
+      }
+    },
+    "progress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "step": { "type": ["integer", "null"], "minimum": 0 },
+        "total_steps": { "type": ["integer", "null"], "minimum": 0 },
+        "rate": { "type": ["string", "null"], "description": "Human-readable, e.g. '1.9 step/s'." },
+        "eta": { "type": ["string", "null"], "description": "ISO 8601 estimate of the current phase's end." },
+        "last_checkpoint": { "type": ["string", "null"] },
+        "stage": { "type": ["string", "null"], "description": "Application stage when the job reports one." }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passed", "total"],
+      "properties": {
+        "passed": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "cursor": { "type": "object" },
+    "next_action": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "last_observed": { "type": ["string", "null"] },
+    "estimated_remaining_min": { "type": ["integer", "null"], "minimum": 0 },
+    "retries": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }
+  }
+}

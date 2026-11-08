@@ -20,10 +20,10 @@ repair failures. When the plan authorizes `auto_low_risk`, **Remote Job Watch
 and Fix** may repair the current approved phase and returns here before any
 later phase starts.
 
-Reuse the single Watchdog heartbeat. Pause it at `AWAITING_USER_APPROVAL`
-after setting that controller state; after approval, update the same
+Reuse the single Watchdog heartbeat. Pause it when the monitor becomes
+`WAITING`, after setting that field; after approval, update the same
 heartbeat for the newly approved phase and reactivate it. Under `COMPLETION`,
-reactivating means arming one waiter for the new phase's attempt.
+reactivating means arming the queue stage for the new phase's attempt.
 
 `SLEEP` may be used inside the currently approved phase of an `INTERVAL`
 monitor; it changes only the interval. Return to `ACTIVE` before evaluating a
@@ -32,17 +32,19 @@ phase boundary.
 ## Approval
 
 An Approval is appended to the plan's Approvals section as the user's words
-plus the phase name or Plan Revision it matches.
+plus the phase name, Plan Revision or approval-artifact hash it matches.
 
-- Approving the Run Plan approves phase 1's launch action by name. Every later
-  phase gates individually.
+- Approving the Run Plan, or the project's approval artifact that the plan
+  names as its `approval_source`, approves phase 1's launch action by name.
+  Every later phase gates individually.
 - A phase whose launch action is "already running" has no gate before it.
-- A changed Gate Packet, launch action, resource impact, or Plan Revision
+- A changed Gate Packet, launch action, resource impact or Plan Revision
   voids the standing approval; present a new gate.
 
-For a not-yet-launched phase 1, matching plan approval leads directly to the
-entry-condition/identity/resource/duplicate checks and exact launch in steps
-4–5 below. There is no preceding phase to observe. Record the first attempt,
+For a not-yet-launched phase 1, matching approval moves the run state to
+`APPROVED` and leads directly to the entry-condition, identity, resource and
+duplicate checks and the exact launch in steps 4–5 below. There is no
+preceding phase to observe. Record the first attempt (run state `QUEUED`),
 then establish the heartbeat through the pending `start` route. A plan-only
 request still requires a request to start before execution.
 
@@ -51,39 +53,44 @@ request still requires a request to start before execution.
 1. Run Remote Job Watchdog for only the current phase.
 2. When its exit checks pass, create a compact Gate Packet: phase name,
    evidence, artifact identities, checks run, failures or exclusions, exact
-   next phase, exact launch action, resource impact, and packet hash.
+   next phase, exact launch action, resource impact and packet hash.
    If this is the final phase, instead verify all required outcomes and
-   artifacts, report overall completion, and pause without a Gate Packet.
-3. Set `AWAITING_USER_APPROVAL` in `state.json`, pause the heartbeat, and ask
-   once for approval tied to that named phase and packet hash.
+   artifacts, report the run `PASSED`, set the monitor `OFF (terminal)` and
+   create no Gate Packet.
+3. Set the monitor `WAITING` with the reason `approve <key> <next phase>
+   (gate <hash prefix>)` in `state.json`, pause the heartbeat, and ask once
+   for approval tied to that named phase and packet hash.
 4. After matching approval, revalidate entry conditions, target identities,
-   resource limits, and absence of duplicates.
+   resource limits and absence of duplicates.
 5. Launch the exact approved next phase once, record its scheduler or process
    identities under a new attempt in History and `state.json`, reset the
-   observation cursor, advance `current_phase`, and
-   reactivate the same heartbeat.
+   observation cursor, advance `current_phase`, set the run state `QUEUED`
+   with a new `since`, and reactivate the same heartbeat.
 
 The exact approved launch is Phase Gate's only direct target-plane write. It
 may not edit the launch payload, repair a failure, substitute another phase,
-expand resources, or reuse approval for another attempt.
+expand resources or reuse approval for another attempt.
 
 If the phase fails, report it and wait. Do not start another phase or repair it
 without the appropriate authorization.
 
-## Phase outcome reports
+## Phase reports
 
-Inherit the Watchdog outcome report contract for the current phase.
+Every report uses the eight-line shape in
+`../remote-training-monitor/REPORT_FORMAT.md`.
 
-- On non-final phase completion, title the report `Phase finished`, place the short
-  `FINISHED` report inside the Gate Packet, add the exact proposed next phase,
-  set `AWAITING_USER_APPROVAL`, and pause the heartbeat.
-- On final-phase completion, follow the shared overall completion contract.
-- On phase failure, provide the actionable Watchdog report, identify whether
+- On non-final phase completion, STATE reads `PHASE n PASSED`, NEXT reads
+  `approve <key> <next phase>` with the Gate Packet hash, the packet's
+  contents are the evidence lines, and MONITOR reads `waiting on you`.
+- On final-phase completion, STATE reads `PASSED` for the run and MONITOR
+  `off (terminal)`.
+- On phase failure, provide the Watchdog `FAILED` report, name on NEXT whether
   authorized Watch and Fix recovery is available, and either transfer the
-  current phase under `auto_low_risk` or wait. Do not create a next-phase
-  approval request while the current phase is unresolved.
-- On an intentionally stopped phase, provide the short `Phase stopped` report
-  with preserved work, the latest safe resume point, and the exact next action.
-  Pause the heartbeat and do not create a next-phase approval request.
-- If the user asks to stop monitoring, pause the heartbeat without generating
-  a phase outcome report.
+  current phase under `auto_low_risk` or set the monitor
+  `OFF (needs-decision)`. Do not create a next-phase approval request while
+  the current phase is unresolved.
+- On an intentionally stopped phase, STATE reads `PHASE n CANCELLED`, the
+  evidence lists preserved work and the latest safe resume point, and the
+  monitor is `OFF (needs-decision)`. No next-phase approval request.
+- If the user asks to stop monitoring, set the monitor `OFF (stopped)`
+  without a phase report.

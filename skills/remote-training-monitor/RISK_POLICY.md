@@ -64,8 +64,9 @@ Classify an action `HIGH` if any low-risk condition fails, or if it would:
 - rerun expensive completed training when a bounded artifact-only recovery can
   preserve the valid training result.
 
-Set `AWAITING_USER_APPROVAL` and present the evidence, proposed change,
-resource impact, rollback plan, verification plan, and exact approval request.
+Set the monitor `WAITING` with the proposed repair as its reason, and present
+the evidence, proposed change, resource impact, rollback plan, verification
+plan, and exact approval request.
 
 When evidence or impact is uncertain, classify `HIGH`.
 

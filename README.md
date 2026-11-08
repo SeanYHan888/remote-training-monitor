@@ -8,11 +8,16 @@ batch inference, evaluation sweeps, and any pipeline that outlives a chat
 turn. It gives an AI coding agent a structured way to answer questions such as:
 
 - "Is my training job still running?"
-- "What progress has it made?"
+- "What progress has it made, and when will it finish?"
 - "Did it finish successfully?"
 - "Is it stalled or unhealthy?"
+- "What is running, what is queued, what did we plan, and what needs me?"
 - "Plan this pipeline and stop for my approval between phases."
 - "Watch and fix routine failures within this approved scope."
+
+Every answer has the same shape: an eight-line report (RUN, STATE, PROGRESS,
+CHECKS, HEALTH, CHANGED, MONITOR, NEXT) for one run, or a board of every run
+in the project in lanes.
 
 The toolkit supports Slurm, Kubernetes, Docker/Podman, systemd, managed
 training platforms, generic processes, and custom batch systems.
@@ -45,8 +50,13 @@ project directory (kept out of git via the repository's local exclude file):
   artifacts, and launch action), the Monitoring Contract (identities, adapter,
   wake mode, evidence rules, recovery policy, limits), and append-only Approvals
   and History sections.
-- `state.json` holds the cursor, controller state, heartbeat identity, and
-  current phase, so any wake can resume from disk.
+- `state.json` holds the run state, health, monitor, heartbeat identity,
+  progress, check results, next action and cursor, so any wake can resume from
+  disk and the board can be generated from it. Its shape is `state.schema.json`,
+  and `scripts/validate_state.py` checks every read and write against it.
+- An optional `.remote-monitor/adapter.md` caches, once per project, the exact
+  observation commands, progress sources, exit-check and approval sources, and
+  the project's own per-run history file, so every plan and wake reuses them.
 
 The Target Key stays stable across phases and retries. Each new attempt records
 its own job identity and artifact paths while reusing the monitor and heartbeat.
@@ -61,14 +71,25 @@ starts immediately after being shown. A plan with a launch action or
 ## Entry points
 
 The router accepts fixed verbs so that a scheduled prompt is unambiguous:
-`plan`, `start`, `iterate <key>`, `status <key>`, `approve <key> <phase>`,
-`stop <key>`, `wake <key>`, `sleep <key>`. Every heartbeat wake runs
-`iterate`, which reads `state.json` first and exits in one line when the
-controller is paused or awaiting approval. A wake never re-plans and never
-adds a second heartbeat. `status` reports cached state with its timestamp.
-“Monitor while I'm away” starts or reuses monitoring; only an explicit request
-for periodic check-ins selects timed wakes. `wake` and `sleep` apply to timed
-monitors only.
+`plan`, `start`, `iterate <key>`, `status <key>`, `board`,
+`approve <key> <phase>`, `stop <key>`, `wake <key>`, `sleep <key>`. Every
+heartbeat wake runs `iterate`, which validates and reads `state.json` first
+and exits in one line when the monitor is waiting on the user or off. A wake
+never re-plans and never adds a second heartbeat. `status <key>` reports
+cached state with its timestamp; `board` (or `status` with no key) writes and
+shows `.remote-monitor/BOARD.md`, every run in the project in lanes: needs
+your decision, running, queued, planned, done, failed. "Monitor while I'm
+away" starts or reuses monitoring; only an explicit request for periodic
+check-ins selects timed wakes. `wake` and `sleep` apply to timed monitors
+only.
+
+A run moves through one lifecycle: `PLANNED` → `APPROVED` → `QUEUED` →
+`RUNNING` → `PASSED`, `FAILED` or `CANCELLED`. `PASSED` means the plan's exit
+checks passed, not that the scheduler said COMPLETED. While `RUNNING`, health
+is `FINE`, `SLOW`, `STALLED` or `UNKNOWN`, computed from named training
+signals (stage, step rate and ETA, loss, checkpoints, log age, restarts) with
+default bands a plan may adjust. The monitor itself is `WATCHING`,
+`RECOVERING`, `WAITING` on you, or `OFF` with a reason.
 
 ## Harnesses
 
@@ -87,13 +108,16 @@ any required approval; the agent verifies it rather than assuming it exists.
 A monitor has one of two wake modes:
 
 - `COMPLETION` (default where supported): a background waiter polls the
-  scheduler in shell and wakes the agent once, when the job leaves its pending
-  and running states or a deadline passes. The agent spends no turns while the
-  job runs. A crash wakes it at once; a job that hangs without exiting is
-  noticed at the deadline unless the plan gives the waiter a stall rule.
-- `INTERVAL`: timed wakes at a Cadence Mode, for harnesses with no completion
-  wake or when you ask for periodic check-ins. `ACTIVE` (10 min) when under
-  about an hour remains, the job is unstable, or a phase boundary is near;
+  scheduler in shell and wakes the agent when there is something to verify.
+  Its queue stage has no deadline and exits when the job starts, so the agent
+  can run an early health check; its run stage exits when the job leaves its
+  running states, when the plan's stall rule fires, or at a deadline counted
+  from the start time. A long job costs two or three agent turns. A crash
+  wakes the agent at once; a hang is noticed by the stall rule, or at the
+  deadline when the plan has none.
+- `INTERVAL`: timed wakes at a Cadence, for harnesses with no completion wake
+  or when you ask for periodic check-ins. `ACTIVE` (10 min) when under about
+  an hour remains, the job is unstable, or a phase boundary is near;
   `RELAXED` (30 min) otherwise; `SLEEP` (60 min) only when you ask.
 
 ## Safety model
@@ -128,12 +152,17 @@ Important defaults:
   terminal state as evidence.
 
 The shared [control contract](skills/remote-training-monitor/CONTROL_CONTRACT.md)
-defines job, health, controller, wake, and cadence states. The
-[harness guide](skills/remote-training-monitor/HARNESSES.md) selects the
-waiting mechanism. The [plan format](skills/remote-training-monitor/PLAN_FORMAT.md)
+defines the run lifecycle, health, the monitor states and the authority
+planes. The [report format](skills/remote-training-monitor/REPORT_FORMAT.md)
+fixes the eight-line shape of every report, and the
+[board format](skills/remote-training-monitor/BOARD_FORMAT.md) the generated
+page of every run. The [harness guide](skills/remote-training-monitor/HARNESSES.md)
+selects the waiting mechanism. The [plan format](skills/remote-training-monitor/PLAN_FORMAT.md)
 and [examples](skills/remote-training-monitor/PLAN_EXAMPLES.md) define the Run
-Plan. The [adapter guide](skills/remote-training-monitor/ADAPTERS.md)
-identifies the authoritative control plane for each target type. The
+Plan, the project adapter and `state.json`. The
+[adapter guide](skills/remote-training-monitor/ADAPTERS.md) identifies the
+authoritative control plane for each target type and defines the training
+signals health is computed from. The
 [recovery risk policy](skills/remote-training-monitor/RISK_POLICY.md) separates
 bounded automatic repairs from approval-required changes.
 
@@ -147,11 +176,12 @@ When invoked to watch a job, the router:
    the approval rule.
 4. Arms one heartbeat via Watchdog and layers Phase Gate or Watch and Fix only
    when the plan grants the corresponding authority.
-5. On every wake, reads `state.json`, observes bounded new evidence, and keeps
-   job state, health, controller state, and wake mode separate. Under
-   `COMPLETION` the first wake is normally the job ending.
-6. Produces a concise report and pauses monitoring when the job finishes,
-   fails, stops, or reaches an approval gate.
+5. On every wake, validates and reads `state.json`, observes bounded new
+   evidence and the training signals, and writes the run state, health,
+   progress, checks and next action back. Under `COMPLETION` the wakes are
+   normally the job starting and the job ending.
+6. Produces one eight-line report and sets the monitor off, or waiting on
+   you, when the job passes, fails, is cancelled, or reaches an approval gate.
 
 The final phase produces an overall completion report after all required
 outcomes and artifacts are verified. It does not request next-phase approval.
@@ -215,6 +245,10 @@ Watch this training run and tell me when it finishes. Do not change anything.
 ```
 
 ```text
+What is running right now, what is queued, and what needs my decision?
+```
+
+```text
 Plan this three-phase pipeline. After each phase, stop and wait for my
 approval before launching the next one.
 ```
@@ -252,12 +286,18 @@ remote-training-monitor/
 └── skills/
     ├── remote-training-monitor/
     │   ├── SKILL.md                 # Entry points, plan-first, routing
-    │   ├── CONTROL_CONTRACT.md      # Shared states, authority, lifecycle
+    │   ├── CONTROL_CONTRACT.md      # Run lifecycle, health, monitor, authority
+    │   ├── REPORT_FORMAT.md         # The eight-line report every wake produces
+    │   ├── BOARD_FORMAT.md          # The generated board of every run
     │   ├── HARNESSES.md             # Claude Code vs Codex waiting mechanisms
-    │   ├── PLAN_FORMAT.md           # Run Plan format and state.json example
+    │   ├── PLAN_FORMAT.md           # Run Plan, project adapter, state.json
     │   ├── PLAN_EXAMPLES.md         # Finished plans to copy
-    │   ├── ADAPTERS.md              # Target-specific observation guidance
+    │   ├── ADAPTERS.md              # Control-plane observation and training signals
     │   ├── RISK_POLICY.md           # Recovery risk classification
+    │   ├── state.schema.json        # Shape of state.json
+    │   ├── scripts/
+    │   │   ├── validate_state.py    # Checks a state.json against the schema
+    │   │   └── board.py             # Renders the board from every state.json
     │   └── agents/
     │       └── openai.yaml          # Codex display metadata
     ├── remote-job-watchdog/
