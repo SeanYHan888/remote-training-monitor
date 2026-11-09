@@ -52,7 +52,7 @@ finds any of these; leave a heading out when the project has none:
 # Project adapter
 
 - Control plane: slurm over `ssh <host>`; account `<user>`; partitions `<...>`
-- Observe: `squeue -j <id> -h -o '%T %M %R'` · `sacct -j <id> -X -n -o State,ExitCode,Elapsed,NodeList` · `scontrol show job <id>`
+- Observe (UTC): `TZ=UTC squeue -j <id> -h -o '%T %M %R'` · `TZ=UTC sacct -j <id> -X -n -o State,ExitCode,Elapsed,NodeList` · `scontrol show job <id>`
 - Logs: StdOut/StdErr from `scontrol`; bounded `tail -n 200`
 - Progress: `<output dir>/run/run.json` (`status.stage`) · W&B run `<project>/<run>` (`train/*` per step) · `checkpoint-*/` mtimes
 - Exit checks source: the `packet_body.exit_checks` field of `evidence/docs/<packet>/<PACKET>.json`

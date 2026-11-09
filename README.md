@@ -112,7 +112,10 @@ A monitor has one of two wake modes:
   Its queue stage has no deadline and exits when the job starts, so the agent
   can run an early health check; its run stage exits when the job leaves its
   running states, when the plan's stall rule fires, or at a deadline counted
-  from the start time. A long job costs two or three agent turns. A crash
+  from the start time. One waiter covers every run a session watches; for
+  Slurm it is the bundled `scripts/slurm_waiter.py`, which reads times in UTC
+  and asks `sacct` about jobs `squeue` has dropped. A long job costs two or
+  three agent turns. A crash
   wakes the agent at once; a hang is noticed by the stall rule, or at the
   deadline when the plan has none.
 - `INTERVAL`: timed wakes at a Cadence, for harnesses with no completion wake

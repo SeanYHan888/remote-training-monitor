@@ -4,6 +4,19 @@ All notable changes to Remote Training Monitor are documented here.
 
 ## Unreleased
 
+- Add `scripts/slurm_waiter.py`, the completion waiter for Slurm: both stages,
+  any number of jobs in one SSH call per poll, `TZ=UTC` on every Slurm
+  command, and a fall-back to `sacct` for a job `squeue` has dropped, so a job
+  that ended between polls no longer reads as a failed lookup and waits out
+  the 24-hour backstop. Tests with stub commands in `tests/`, run by
+  `scripts/validate-release.sh`. It replaces the two Slurm shell templates in
+  `HARNESSES.md` (ADR 0003).
+- One completion waiter per session covers every Target Key it watches;
+  `state.json` records the shared waiter with `heartbeat.covers`, and the
+  validator and board know the field (ADR 0003).
+- Every Slurm command in the adapter and plan format runs with `TZ=UTC`, and
+  every waiter follows three lookup rules: exit on a state actually read, ask
+  accounting before calling a lookup failed, read times in UTC.
 - Add a Wording section to `REPORT_FORMAT.md` drawn from the `unslop` rule
   catalog (whole sentences, named actors, values over adjectives, no
   arrows or commentary), reword its example and the History line shape

@@ -1,6 +1,6 @@
 ---
 name: remote-training-monitor
-description: Plan and coordinate monitoring of long-running training, evaluation, and compute jobs. Use for watching a job until it finishes, a board of every run in a project, approval-gated pipelines, or authorized recovery; route one-shot job checks to Watchdog.
+description: Plan and coordinate monitoring of long-running training, evaluation, and compute jobs. Use for watching jobs until they finish, a board of every run in a project, approval-gated pipelines, or authorized recovery; route one-shot job checks to Watchdog.
 license: MIT
 compatibility: Requires all four skills from this repository, Python 3 for the bundled scripts, and an agent with filesystem and shell access. Monitoring also requires background-process or scheduler support.
 ---
@@ -25,7 +25,7 @@ route enters recovery or a phase gate, or when authority is in question.
 | `board`, or `status` with no key | Run `python3 <this skill dir>/scripts/board.py <project-dir>`, write its output to `.remote-monitor/BOARD.md`, append `## Planned elsewhere` from the project adapter's `planned_source` when one exists (`BOARD_FORMAT.md`), and show the board. No target observation. |
 | `status <key>` | Validate and read `.remote-monitor/<key>/state.json`; report it as a cached block (`REPORT_FORMAT.md`, "status"). No target observation or scheduler call. |
 | `plan` | Read `PLAN_FORMAT.md` and the matching section of `ADAPTERS.md`; read or write `.remote-monitor/adapter.md`; discover, write and present the plan with run state `PLANNED` and monitor `OFF (draft)`. Stop before launching or scheduling. |
-| `start` / watch until done | Read `PLAN_FORMAT.md`, `HARNESSES.md` and `../remote-job-watchdog/SKILL.md`. Reuse an existing plan or create one; apply its approval rule; observe; arm one heartbeat (a completion wake where the harness supports one, an interval timer otherwise); report. |
+| `start` / watch until done | Read `PLAN_FORMAT.md`, `HARNESSES.md` and `../remote-job-watchdog/SKILL.md`. Reuse an existing plan or create one; apply its approval rule; observe; arm one heartbeat (a completion wake where the harness supports one, an interval timer otherwise); report. Several runs: one plan and state per key, one shared waiter. |
 | `iterate <key>` | Follow Watchdog's Iteration, including the state validation, the no-op guard and the plan reload before observation. Never re-plan or add a heartbeat; arm a waiter only as Iteration allows. |
 | `approve <key> <phase or revision>` | Read the plan and `../remote-job-phase-gate/SKILL.md`; record matching user approval. Continue an approved pending start or phase launch, then resume the same heartbeat. |
 | `stop <key>` | Set the monitor `OFF (stopped)`, pause the heartbeat (`HARNESSES.md`), acknowledge in one line. The job is untouched. |

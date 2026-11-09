@@ -36,6 +36,8 @@ for skill_name in \
   grep -Fq "$skill_name" <<<"$skills_output"
 done
 
+python3 -m unittest discover -s tests
+
 npx --yes @anthropic-ai/claude-code@2.1.237 plugin validate --strict .
 git diff --check
 

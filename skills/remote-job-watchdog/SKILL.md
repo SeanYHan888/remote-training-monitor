@@ -55,7 +55,10 @@ Operate only on the monitoring plane:
    History line in the report's History-line shape.
 2. Create, update, reactivate or pause the one heartbeat for the Target Key,
    using the available background or scheduling mechanism. Record its id in
-   `state.json` and reuse a recorded id instead of creating another.
+   `state.json` and reuse a recorded id instead of creating another. Under
+   `COMPLETION` every key the session watches shares one waiter, recorded
+   with `covers` (`../remote-training-monitor/HARNESSES.md`, "Several runs,
+   one waiter").
 3. Report in the eight-line shape, worded per its Wording rules. Report
    every wake that changes the run
    state, health or checks, every start, and every required action; a wake
@@ -76,7 +79,9 @@ chooses one and records it in the Monitoring Contract and the heartbeat:
   shell and wakes the agent when there is something to verify. It has two
   stages (`HARNESSES.md`): the queue stage exits when the job starts, the run
   stage when the attempt leaves its running states, a stall rule fires, or the
-  deadline passes. A long job costs two or three agent turns. Use it whenever
+  deadline passes. A long job costs two or three agent turns. One waiter
+  covers every run the session watches; for Slurm it is the bundled
+  `scripts/slurm_waiter.py`. Use it whenever
   the harness re-invokes the agent when a background command exits, as Claude
   Code does.
 - `INTERVAL`: a timer wakes the agent at a Cadence. Use it only when the
@@ -156,7 +161,10 @@ Every wake runs `iterate <target-key>`:
      `FINE`: arm one replacement run-stage waiter with a fresh deadline and
      record it in place of the spent one;
    - a wake that arrives while the recorded waiter is still alive, such as an
-     `iterate` the user asked for, arms nothing.
+     `iterate` the user asked for, arms nothing;
+   - a shared waiter exited: run this Iteration for each key the exit names,
+     then arm one replacement over every covered key still `WATCHING`, each in
+     its current stage, recorded in each of their state files.
 5. For `FAILED`, or health `STALLED`, or `SLOW` with an action the plan
    names:
    - with `observe_only`, preserve evidence, set the monitor

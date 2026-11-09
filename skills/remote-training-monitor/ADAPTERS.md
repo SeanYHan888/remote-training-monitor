@@ -15,10 +15,16 @@ unless they also own the job lifecycle.
 
 ### Slurm
 
+- Run every Slurm command with `TZ=UTC`; Slurm prints the cluster's local
+  zone otherwise, with no marker.
 - Resolve identity and current state with `squeue`, then
   `scontrol show job <job_id>`.
 - Use `sacct -j <job_id> -X -n -o State,ExitCode,Elapsed,NodeList` for
-  completed or failed jobs and steps.
+  completed or failed jobs and steps. `squeue` drops a job `MinJobAge` after
+  it ends (300 s by default), so an empty `squeue` answer means ask `sacct`,
+  not that the lookup failed.
+- The completion waiter for Slurm is `scripts/slurm_waiter.py`
+  (`HARNESSES.md`).
 - Resolve `StdOut` and `StdErr` from scheduler metadata before reading bounded
   output.
 - While PENDING: `squeue -j <id> -o '%T %r %S'` gives the reason and the
