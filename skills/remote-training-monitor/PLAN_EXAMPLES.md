@@ -42,7 +42,7 @@ created: 2026-09-04T09:12:00Z
 
 ## History
 
-- 2026-09-04T09:12Z RUNNING (step 12400/20000, 1.9 step/s, ETA 10:40Z) → run-stage waiter bg-7f2c armed, backstop 15:30Z, session-bound
+- 2026-09-04T09:12Z RUNNING (step 12400/20000, 1.9 step/s, ETA 10:40Z). Next: run-stage waiter bg-7f2c armed, backstop 15:30Z, session-bound
 ```
 
 ## Three-phase train, eval, upload with Phase Gate and low-risk recovery
@@ -50,7 +50,7 @@ created: 2026-09-04T09:12:00Z
 ```markdown
 ---
 target_key: slurm-4830
-run_name: mix-v3 train→eval→upload
+run_name: mix-v3 train, eval, upload
 harness: codex-desktop
 control_plane: slurm
 project_dir: /Users/operator/projects/llm-ft

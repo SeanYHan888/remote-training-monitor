@@ -83,7 +83,7 @@ The agent runtime the skill is executing in: Claude Code, the Codex desktop app,
 _Avoid_: platform, environment, client
 
 **Heartbeat**:
-The single wake mechanism for one Target Key: a Waiter, or an interval timer such as a Claude Code scheduled wakeup or cron routine or a Codex in-chat or standalone scheduled task. Its id is recorded alone in `state.json`; its history is History.
+The single wake mechanism for one Target Key: a Waiter (which the Target Keys one session watches share), or an interval timer such as a Claude Code scheduled wakeup or cron routine or a Codex in-chat or standalone scheduled task. Its id is recorded alone in `state.json`; its history is History.
 _Avoid_: timer, automation, poller, cron (as a generic term)
 
 **Wake Mode**:
@@ -91,7 +91,7 @@ How a heartbeat wakes the agent: `COMPLETION` (when the job starts, when the att
 _Avoid_: polling mode, schedule type
 
 **Waiter**:
-The background shell command that provides a `COMPLETION` heartbeat. It has a queue stage (exits when the job starts; backstop only) and a run stage (exits on a terminal state it read, a stall rule, or a deadline counted from the start time). Its exit prompts an Observation; it is never evidence of completion.
+The background shell command that provides a `COMPLETION` heartbeat. It has a queue stage (exits when the job starts; backstop only) and a run stage (exits on a terminal state it read, a stall rule, or a deadline counted from the start time). One Waiter covers every Target Key a session watches, each in its own stage; for Slurm it is the bundled `scripts/slurm_waiter.py`. Its exit prompts an Observation; it is never evidence of completion.
 _Avoid_: watcher, poller, background monitor
 
 **Cadence**:

@@ -128,7 +128,9 @@ inside the current approved phase. It never grants the next-phase launch.
 
 ## Heartbeat lifecycle
 
-One Watchdog-owned heartbeat per Target Key:
+One Watchdog-owned heartbeat per Target Key. Under `COMPLETION`, the keys one
+session watches share one waiter, recorded as each key's heartbeat with
+`covers` (`HARNESSES.md`, "Several runs, one waiter"):
 
 1. Create it only for a monitoring request, never for a one-shot check, after
    the Run Plan is written and the approval rule is satisfied.
@@ -140,7 +142,7 @@ One Watchdog-owned heartbeat per Target Key:
    and fires once: a new attempt, a new phase, a job that started while the
    queue waiter watched, or a job still running after its waiter exited gets
    one replacement waiter, recorded as the same heartbeat. Never run two
-   waiters for one Target Key.
+   waiters for one Target Key, or two waiters in one session.
 4. Pause it for `PASSED`, `CANCELLED`, `WAITING`, a user request to stop
    monitoring, or a `FAILED` state not transferred to an authorized recovery
    loop. Set the monitor field first, so a wake that still fires is a no-op

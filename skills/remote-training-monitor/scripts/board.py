@@ -75,7 +75,8 @@ def monitor_text(state):
     kind = monitor.get("state", "?")
     if kind == "WATCHING":
         if hb.get("mode") == "completion":
-            return f"watching · wakes on exit, backstop {hb.get('deadline') or '—'}"
+            shared = f" · one waiter for {len(hb['covers'])} runs" if len(hb.get("covers") or []) > 1 else ""
+            return f"watching · wakes on exit, backstop {hb.get('deadline') or '—'}{shared}"
         return f"watching · every {hb.get('interval_min', '?')} min"
     if kind == "WAITING":
         return f"waiting on you: {monitor.get('reason') or '—'}"

@@ -92,6 +92,14 @@ def semantic(state, errors):
         errors.append("heartbeat.interval_min: required for an interval heartbeat")
     if hb.get("mode") == "completion" and hb.get("interval_min"):
         errors.append("heartbeat.interval_min: a completion waiter has no interval")
+    covers = hb.get("covers")
+    if covers:
+        if hb.get("mode") != "completion":
+            errors.append("heartbeat.covers: only a completion waiter is shared between keys")
+        if state.get("target_key") not in covers:
+            errors.append("heartbeat.covers: must include this state's target_key")
+        if len(set(covers)) != len(covers):
+            errors.append("heartbeat.covers: lists a key twice")
     if state.get("run_state") in ("QUEUED", "RUNNING", "PASSED", "FAILED", "CANCELLED") and not state.get("current_attempt"):
         errors.append("current_attempt: required once anything is submitted")
 

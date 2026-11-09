@@ -36,6 +36,7 @@
         "deadline": { "type": ["string", "null"] },
         "interval_min": { "type": ["integer", "null"], "minimum": 1 },
         "cadence": { "enum": ["ACTIVE", "RELAXED", "SLEEP", null] },
+        "covers": { "type": ["array", "null"], "items": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" }, "description": "Target Keys one shared completion waiter watches, this key included (HARNESSES.md, 'Several runs, one waiter'). Absent or null when the heartbeat serves this key alone." },
         "durability": { "enum": ["durable", "session-bound", "unknown"] },
         "project_dir": { "type": "string" }
       }
